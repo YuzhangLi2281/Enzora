@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { DEMO_ENZYME_SEQUENCE } from "../../shared/demo/backend";
 import { api, isDemo } from "../../shared/api/client";
 import { rememberRequest } from "../runs/requestStorage";
 import { useRun } from "../runs/useRun";
@@ -63,9 +64,9 @@ export function Workbench() {
   const [params, setParams] = useSearchParams();
   const jobId = params.get("job");
   const run = useRun(jobId);
-  const [sequence, setSequence] = useState("");
-  const [name, setName] = useState("");
-  const [ligand, setLigand] = useState("");
+  const [sequence, setSequence] = useState(() => isDemo() ? DEMO_ENZYME_SEQUENCE : "");
+  const [name, setName] = useState(() => isDemo() ? "Carbonic anhydrase" : "");
+  const [ligand, setLigand] = useState(() => isDemo() ? "O=C=O" : "");
   const [size, setSize] = useState(1000);
   const [order, setOrder] = useState(1);
   const [tab, setTab] = useState(0);
@@ -365,11 +366,9 @@ export function Workbench() {
       );
     });
   const sample = () => {
-    setSequence(
-      "MKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQANMKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAN",
-    );
-    setName("Demo enzyme");
-    setLigand("CCO");
+    setSequence(DEMO_ENZYME_SEQUENCE);
+    setName("Carbonic anhydrase");
+    setLigand("O=C=O");
     setSize(1000);
     setOrder(1);
     setSelection(defaultSelection());
@@ -512,7 +511,7 @@ export function Workbench() {
                         {isDemo()
                           ? zh
                             ? "示例蛋白与底物仅用于演示，不代表真实实验。"
-                            : "The sample protein and substrate are illustrative only."
+                            : "Project example: 544 aa carbonic anhydrase with CO₂. Demo scores are simulated."
                           : zh
                             ? "活性预测对应当前酶序列与底物的组合。"
                             : "Activity predictions are specific to this enzyme–substrate pair."}

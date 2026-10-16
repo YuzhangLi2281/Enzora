@@ -4690,3 +4690,13 @@ body,
 .assistant-action-progress li[data-complete="true"] > span {color:var(--ok);}
 .assistant-action-progress p {font-size:11px;margin:12px 0 0;line-height:1.6;color:var(--text-dim);}
 @media(prefers-reduced-motion:reduce){.process-scroll {scroll-behavior:auto;}}
+
+/* Larger scientific plots retain their coordinates and provide a native full-screen view. */
+.llr-landscape {height:240px;}
+.llr-waiting {min-height:220px;display:grid;place-items:center;text-align:center;line-height:1.7;}
+.scoring-waterfall svg,.screening-composition .scoring-waterfall svg {height:370px;max-height:none;}
+.chart-expand {display:block;margin:8px 0 4px auto;padding:6px 10px;font:700 12px Arial,"Noto Sans SC",sans-serif;}
+@media(min-width:1001px){.library-engine{min-height:0;max-height:100%;overflow-y:auto;overscroll-behavior-y:contain;padding-right:8px;}}
+.model-contributions:fullscreen,.scoring-waterfall:fullscreen {box-sizing:border-box;background:var(--bg-panel);color:var(--text);padding:36px;overflow:auto;}
+.model-contributions:fullscreen .llr-landscape {height:calc(100dvh - 220px);min-height:320px;}
+.scoring-waterfall:fullscreen svg {height:calc(100dvh - 210px);min-height:320px;}

@@ -109,6 +109,7 @@ export function WorkspaceIntro({
     query.addEventListener("change", update);
     return () => query.removeEventListener("change", update);
   }, []);
+  const chart = useRef<HTMLDivElement>(null);
   const id = useId().replace(/:/g, "");
   const progress = target > 0 ? Math.min(1, saved / target) : 0;
   const element = useRef<HTMLDivElement>(null);
@@ -280,28 +281,29 @@ export function WorkspaceIntro({
           </text>
         </svg>
       </div>
-      <div className="model-contributions" data-replay={replay < 1}>
+      <div ref={chart} className="model-contributions" data-replay={replay < 1}>
         <div><strong>{zh ? '酶突变库构建的 PLM LLR 分布' : 'PLM LLR score distribution for enzyme mutation database construction'}</strong>
           <span role="status">{!frame ? ''
             : replay<.16 ? 'Syncing with VESM…' : replay<.84 ? (zh?'扫描已保存替换':'Scanning saved substitutions') : `N=${saved} · ${zh?'归因完成':'Attribution complete'}`}</span></div>
+        <button type="button" className="chart-expand" disabled={!document.fullscreenEnabled} onClick={() => document.fullscreenElement ? document.exitFullscreen() : chart.current?.requestFullscreen()}>{zh ? "整屏查看 ↗" : "Expand chart ↗"}</button>
         <div className="contribution-track">
           {counts && attributionTotal>0 && generators.map((g,i)=><span key={g.id} style={{width:`${counts[g.id]/attributionTotal*100}%`,background:colors[i]}} />)}
         </div>
         <div className="contribution-legend">{generators.map((g,i)=><span key={g.id}><i style={{background:colors[i]}}/>{g.name} <strong>{attributionTotal>0 ? `${(counts![g.id]/attributionTotal*100).toFixed(1)}%` : '—'}</strong></span>)}</div>
-        {frame && landscape ? <svg className="llr-landscape" viewBox="0 0 560 142" role="img" aria-label={zh?'真实已保存替换的校准 LLR 分布':'Calibrated LLR distributions of saved substitutions'}>
+        {frame && landscape ? <svg className="llr-landscape" viewBox="0 0 560 220" role="img" aria-label={zh?'真实已保存替换的校准 LLR 分布':'Calibrated LLR distributions of saved substitutions'}>
           <defs>{generators.map((g,i)=><linearGradient key={g.id} id={`${id}-density-${i}`} x1="0" y1="0" x2="0" y2="1"><stop stopColor={colors[i]} stopOpacity=".55"/><stop offset="1" stopColor={colors[i]} stopOpacity=".04"/></linearGradient>)}</defs>
           {generators.map((g,i)=>{
             const values=frame.density[g.id];
             if(!values) return null;
-            const points=values.map((v,j)=>`${32+j/(values.length-1)*500},${111-v/densityMax*82}`);
+            const points=values.map((v,j)=>`${32+j/(values.length-1)*500},${183-v/densityMax*145}`);
             return <g key={g.id} className="llr-density" style={{opacity:replay<.16?replay/.16:1}}>
-              <path d={`M32,111 L${points.join(' L')} L532,111Z`} fill={`url(#${id}-density-${i})`}/>
+              <path d={`M32,183 L${points.join(' L')} L532,183Z`} fill={`url(#${id}-density-${i})`}/>
               <path d={`M${points.join(' L')}`} fill="none" stroke={colors[i]} strokeWidth="2.2" strokeLinejoin="round"/>
             </g>;
           })}
-          <text x="32" y="131">{landscape.bins[0].toFixed(1)}</text><text x="532" y="131" textAnchor="end">{landscape.bins[landscape.bins.length-1].toFixed(1)}</text>
-          <text x="280" y="137" textAnchor="middle">{zh?'校准 LLR · 已保存替换的前缀回放':'Calibrated LLR · saved-substitution replay'}</text>
-        </svg> : <div className="llr-waiting" aria-hidden="true"></div>}
+          <text x="32" y="203">{landscape.bins[0].toFixed(1)}</text><text x="532" y="203" textAnchor="end">{landscape.bins[landscape.bins.length-1].toFixed(1)}</text>
+          <text x="280" y="217" textAnchor="middle">{zh?'校准 LLR · 已保存替换的前缀回放':'Calibrated LLR · saved-substitution replay'}</text>
+        </svg> : <div className="llr-waiting">{zh ? "建库后，这里显示三个模型的 LLR 分布与限制性归因占比。" : "Build the library to compare the three models’ LLR distributions and limiting-model shares."}</div>}
         <details className="llr-method"><summary>{zh?'如何读图':'How to read this plot'}</summary><p>{zh?'各替换取最低校准 LLR，平局均分。5 秒回放展示已保存数据，不代表推理耗时。':'Minimum calibrated LLR per substitution; ties split equally. The 5-second replay shows saved data, not inference time.'}</p></details>
       </div>
     </div>
