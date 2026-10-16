@@ -1024,13 +1024,17 @@ export function Workbench() {
                 <h3>{zh ? "Agent 分析报告" : "Agent report"}</h3>
                 <p>
                   {run.analysisText ??
-                    (zh
-                      ? "完成建库与评分，并确认 Next Process 后，报告将在这里呈现。"
-                      : "Complete the library and scoring phases, then confirm Next Process to generate the report.")}
+                    (run.meta?.status === "failed" || run.meta?.status === "cancelled"
+                      ? (zh
+                        ? "本次流程已停止，尚未生成最终报告。请查看运行日志与已保存的预测结果。"
+                        : "This run stopped before producing a final report. Inspect the run log and saved predictions.")
+                      : (zh
+                        ? "完成建库与评分，并确认 Next Process 后，报告将在这里呈现。"
+                        : "Complete the library and scoring phases, then confirm Next Process to generate the report."))}
                 </p>
                 <button
                   className="text-button"
-                  disabled={!run.result || busy}
+                  disabled={!run.result?.markdown_report || busy}
                   onClick={exportReport}
                 >
                   {zh ? "导出完整报告" : "Export full report"} ↗
@@ -1039,7 +1043,7 @@ export function Workbench() {
               <div className="top-results">
                 <div className="input-heading">
                   <h3>
-                    Top-{run.result ? selected.length : selection.top_k}{" "}
+                    Top-{selected.length || selection.top_k}{" "}
                     {zh ? "候选" : "candidates"}
                   </h3>
                   <div>
