@@ -10,15 +10,19 @@ const module = { exports: {} };
 vm.runInNewContext(`(function(exports) { ${compiled}\n})`, {})(module.exports);
 const { automaticReview, candidateError, defaultCandidate, defaultSelection, positionList, resolvedReview, selectionError, sequenceError, reviewedRequest, conversationUpdate } = module.exports;
 
-test('manual defaults are valid without a target pH and positive pH weights require a target', () => {
+test('neutral defaults activate only requested objectives; API weights remain bounded', () => {
   const selection = defaultSelection();
+  assert.equal(JSON.stringify(selection.weights), JSON.stringify({ph: 0, activity: .5, stability: .5}));
   assert.equal(selectionError(selection), null);
-  assert.equal(selectionError({ ...selection, weights: { ph: 1, activity: 1, stability: 1 } }), 'ph_required');
-  assert.equal(selectionError({ ...selection, target_ph: 7.5, weights: { ph: 1, activity: 1, stability: 1 } }), null);
+  const target = defaultSelection(7.5);
+  assert.equal(target.weights.ph, 1/3);
+  assert.equal(selectionError(target), null);
+  for (const weights of [{ph:1.1,activity:0,stability:0},{ph:.3,activity:.6,stability:.3},{ph:0,activity:0,stability:0},{ph:-.1,activity:.8,stability:.3}])
+    assert.equal(selectionError({...selection,weights}), 'weights');
 });
 
 test('AI review preserves position, activity, stability and pool constraints on confirmed submission', () => {
-  const parsed = { resolved_candidate: { top_k: 24, allowed_positions: [3, 8], excluded_positions: [5] }, resolved_selection: { target_ph: 7.5, min_activity_log10: 0.25, stability_direction: 'higher_is_better', stability_operator: 'ge', stability_threshold: 1, top_k: 8, weights: { ph: 3, activity: 4, stability: 3 } } };
+  const parsed = { resolved_candidate: { top_k: 24, allowed_positions: [3, 8], excluded_positions: [5] }, resolved_selection: { target_ph: 7.5, min_activity_log10: 0.25, stability_direction: 'higher_is_better', stability_operator: 'ge', stability_threshold: 1, top_k: 8, weights: { ph: 0.3, activity: 0.4, stability: 0.3 } } };
   const draft = resolvedReview(parsed, defaultCandidate(), defaultSelection());
   const request = reviewedRequest({ ...draft, name: 'sample', sequence: 'MKTAY', goal: 'pH 7.5', aiReady: true, lang: 'zh' });
   assert.equal(request.candidate.top_k, 24);
@@ -31,7 +35,7 @@ test('AI review preserves position, activity, stability and pool constraints on 
   assert.equal(request.llm.parameter_parsing, false);
   assert.equal(request.llm.result_analysis, true);
   assert.equal(request.llm.enabled, true);
-  assert.equal(draft.selection.weights.ph, 3);
+  assert.equal(draft.selection.weights.ph, 0.3);
 });
 
 test('protein validation does not turn prose or unknown residues into sequences', () => {

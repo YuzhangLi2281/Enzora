@@ -28,6 +28,7 @@ class Candidate:
     ph_component: Optional[float] = None
     stability_component: Optional[float] = None
     final_score: Optional[float] = None
+    score_evidence: Optional[dict] = None
     passed: bool = True
     reasons: list[str] = field(default_factory=list)
 

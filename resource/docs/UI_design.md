@@ -1,6 +1,6 @@
 # Enzora 前端设计与运行状态约定
 
-主版本为马卡龙色系，参考 [AnewOmni 页面](https://anewbt.com/research/anewomni/)和本地论文图 1–3 的清晰黑体、青紫粉科学配色与矢量标注。保留 Atlas 蓝黑版本作对照，两种主题共享数据和行为。
+主版本为马卡龙色系，采用清晰黑体、青紫粉科学配色与矢量标注。保留 Atlas 蓝黑版本作对照，两种主题共享数据和行为。
 
 ## 色彩与文字
 
@@ -31,7 +31,6 @@
 
 `models/*.svg` 为自绘模型概念图；GitHub 图标使用用户指定的 `fonts/github.png`。
 
-`anewomni-protein.svg` 来自 Kong 等 *Programming Biomolecular Interactions with All-Atom Generative Model* 的图 1、PDF 第 4 页（本地 `anewomni.pdf`），[DOI](https://doi.org/10.64898/2026.03.12.711044)，[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)。做了去背景、颜色量化和矢量轮廓简化，文件包含实际 path，无嵌入位图。该图片仅为装饰，不表示本轮序列已预测结构。来源与改编说明同时保留在 SVG desc、页面署名和 README。
 
 ## 验证边界
 

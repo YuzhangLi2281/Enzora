@@ -16,8 +16,8 @@ class PhenomAdapter:
         self.python = config['python']
 
     def preflight(self) -> list[str]:
-        files = [self.repo / 'inference/inference.py', self.repo / 'train/build_esmc_cache.py',
-                 self.repo / 'train/build_ligand_fingerprints.py']
+        files = [self.repo / 'inference/inference.py', self.repo / 'inference/build_esmc_cache.py',
+                 self.repo / 'inference/build_ligand_fingerprints.py']
         files += [Path(self.config['model_dir']) / name for name in ('model.pt', 'degree.pt', 'config.json')]
         errors = [f'PHENOM file missing: {path}' for path in files if not path.is_file()]
         for key in ('esmc_model_dir', 'molt5_model_dir'):
@@ -49,10 +49,10 @@ class PhenomAdapter:
         child_env = dict(env)
         child_env.update(HF_HUB_OFFLINE='1', TRANSFORMERS_OFFLINE='1')
         commands = [
-            ('protein_cache', [str(self.repo / 'train/build_esmc_cache.py'),
+            ('protein_cache', [str(self.repo / 'inference/build_esmc_cache.py'),
                 '--protein-sequence-map-csv', str(seq_map), '--protein-cache-dir', str(protein_cache),
                 '--esmc-model-dir', self.config['esmc_model_dir'], '--device', device]),
-            ('ligand_cache', [str(self.repo / 'train/build_ligand_fingerprints.py'),
+            ('ligand_cache', [str(self.repo / 'inference/build_ligand_fingerprints.py'),
                 '--csv', str(input_csv), '--ligand-cache-dir', str(ligand_cache),
                 '--molt5-model', self.config['molt5_model_dir'], '--device', device]),
             ('phenom', [str(self.repo / 'inference/inference.py'), '--input-file', str(input_csv),

@@ -1,11 +1,11 @@
 import type { ClassifyResult, ParseResult, RunRequest } from '../../shared/api/contracts';
 
 export const defaultCandidate = (): RunRequest['candidate'] => ({ top_k: 1000, allowed_positions: null, excluded_positions: [] });
-export const defaultSelection = (): RunRequest['selection'] => ({
-  target_ph: null, ph_tolerance: null, min_activity_log10: null,
+export const defaultSelection = (targetPh: number | null = null): RunRequest['selection'] => ({
+  target_ph: targetPh, ph_tolerance: null, min_activity_log10: null,
   stability_direction: 'lower_is_better', stability_operator: 'none', stability_threshold: null,
   confidence: { ph: 1, activity: 1, stability: 1 },
-  weights: { ph: 0, activity: 0.6, stability: 0.4 }, top_k: 5,
+  weights: targetPh === null ? { ph: 0, activity: 0.5, stability: 0.5 } : { ph: 1/3, activity: 1/3, stability: 1/3 }, top_k: 5,
 });
 
 /** Keep every reviewed constraint; do not reconstruct a subset on submission. */
@@ -23,12 +23,12 @@ export function selectionError(selection: RunRequest['selection']): string | nul
   if (selection.min_activity_log10 !== null && !Number.isFinite(selection.min_activity_log10)) return 'min_activity_log10';
   if (selection.stability_threshold !== null && !Number.isFinite(selection.stability_threshold)) return 'stability_threshold';
   if (selection.stability_operator !== 'none' && selection.stability_threshold === null) return 'stability_required';
+  const weights = Object.values(selection.weights);
+  if (weights.some((w) => !Number.isFinite(w) || w < 0 || w > 1) || Math.abs(weights.reduce((a, b) => a + b, 0) - 1) > 1e-8) return 'weights';
   if (selection.confidence) {
     if (Object.values(selection.confidence).some((v) => !Number.isFinite(v) || v < 0 || v > 1)) return 'confidence';
     if (selection.weights.ph * selection.confidence.ph + selection.weights.activity * selection.confidence.activity + selection.weights.stability * selection.confidence.stability <= 0) return 'confidence';
   }
-  const weights = Object.values(selection.weights);
-  if (weights.some((w) => !Number.isFinite(w) || w < 0) || weights.reduce((a, b) => a + b, 0) <= 0) return 'weights';
   if (selection.weights.ph > 0 && selection.target_ph === null) return 'ph_required';
   return null;
 }
@@ -84,7 +84,7 @@ export function reviewedRequest({ name, sequence, goal, candidate, selection, ai
     activity: { task: 'kcat', ligand_smiles: ligandSmiles },
     sequence_name: name || 'enzyme', sequence, user_request: goal.trim() || null, candidate,
     selection: { ...selection, weights: { ph: selection.weights.ph / total, activity: selection.weights.activity / total, stability: selection.weights.stability / total } },
-    llm: { enabled: aiReady, parameter_parsing: false, result_analysis: aiReady, analysis_fail_open: true },
+    llm: { enabled: aiReady, auto_balance: aiReady, parameter_parsing: false, result_analysis: aiReady, analysis_fail_open: true },
     visualization: { enabled: true, umap: true }, report: { language: lang }, runtime: { force_cpu: forceCpu, phase_control: true },
   };
 }

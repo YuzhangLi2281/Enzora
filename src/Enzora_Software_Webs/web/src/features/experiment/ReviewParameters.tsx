@@ -40,11 +40,11 @@ export function ReviewParameters({ lang, selection, candidate, onChange, onCandi
   const rationale = (field: string) => !editedFields.has(field) && parseResult?.rationale?.[field] ? <small className="dim parameter-rationale">{parseResult.rationale[field]}</small> : null;
   const error = selectionError(selection) || candidateError(candidate, selection, sequenceLength);
   const errors: Record<string, string> = zh ? {
-    top_k: '保留候选数须为 1–50 的整数。', target_ph: '目标 pH 须在 0–14 之间。', ph_tolerance: 'pH 容差须大于 0。', weights: '权重须为非负数，且至少一项大于 0。', ph_required: 'pH 权重大于 0 时，请填写目标 pH。',
+    top_k: '保留候选数须为 1–50 的整数。', target_ph: '目标 pH 须在 0–14 之间。', ph_tolerance: 'pH 容差须大于 0。', weights: '每项权重须在 0–1 之间，三项之和须为 1。', ph_required: 'pH 权重大于 0 时，请填写目标 pH。',
     min_activity_log10: '最低活性评分须为有效数字。', stability_threshold: '稳定性阈值须为有效数字。', stability_required: '使用稳定性筛选时，请填写阈值。',
     candidate_pool: '候选池须为 正整数 的整数。', pool_too_small: '候选池数量须不少于最终保留候选数。', positions: `位点须为 1–${sequenceLength || '序列长度'} 的整数，以逗号分隔。`, position_conflict: '同一位点不能同时被允许和排除。',
   } : {
-    top_k: 'Select 1–50 candidates.', target_ph: 'Target pH must be 0–14.', ph_tolerance: 'pH tolerance must be positive.', weights: 'Use nonnegative weights with at least one positive value.', ph_required: 'Enter a target pH when the pH weight is positive.',
+    top_k: 'Select 1–50 candidates.', target_ph: 'Target pH must be 0–14.', ph_tolerance: 'pH tolerance must be positive.', weights: 'Each weight must be between 0 and 1; the three must sum to 1.', ph_required: 'Enter a target pH when the pH weight is positive.',
     min_activity_log10: 'Minimum activity score must be a valid number.', stability_threshold: 'Stability threshold must be a valid number.', stability_required: 'Enter a threshold when using a stability filter.',
     candidate_pool: 'Candidate pool must be a positive integer.', pool_too_small: 'The candidate pool must cover the final candidate count.', positions: `Positions must be integers from 1 to ${sequenceLength || 'the sequence length'}, separated by commas.`, position_conflict: 'A position cannot be both allowed and excluded.',
   };
@@ -62,7 +62,7 @@ export function ReviewParameters({ lang, selection, candidate, onChange, onCandi
     {selection.confidence && <div className="form-grid">{(['ph', 'activity', 'stability'] as const).map((key) => <label key={key} className="field">{key} {zh ? '可信度控制（非校准概率）' : 'Reliability control (not a probability)'}<input type="range" min={0} max={1} step={0.01} value={selection.confidence![key]} onChange={(e) => onChange({ ...selection, confidence: { ...selection.confidence!, [key]: Number(e.target.value) } })} /><span>{Math.round(selection.confidence![key] * 100)}%</span></label>)}</div>}
     {rationale('selection.weights')}
     <div className="form-grid" style={{ marginTop: 4 }}>
-      {(['ph', 'activity', 'stability'] as const).map((key) => <label key={key} className="field">{zh ? ({ ph: 'pH', activity: '活性', stability: '稳定性' }[key]) : key} {source(`selection.weights.${key}`)}<input aria-label={`Weight ${key}`} type="number" min={0} step="0.1" value={selection.weights[key]} onChange={(e) => { mark(`selection.weights.${key}`); onChange({ ...selection, weights: { ...selection.weights, [key]: Number(e.target.value) } }); }} />{rationale(`selection.weights.${key}`)}</label>)}
+      {(['ph', 'activity', 'stability'] as const).map((key) => <label key={key} className="field">{zh ? ({ ph: 'pH', activity: '活性', stability: '稳定性' }[key]) : key} {source(`selection.weights.${key}`)}<input aria-label={`Weight ${key}`} type="number" min={0} max={1} step="0.1" value={selection.weights[key]} onChange={(e) => { mark(`selection.weights.${key}`); onChange({ ...selection, weights: { ...selection.weights, [key]: Number(e.target.value) } }); }} />{rationale(`selection.weights.${key}`)}</label>)}
     </div>
     <div className="small dim" style={{ marginTop: 10 }}>{zh ? '候选生成与筛选条件（均可修改）' : 'Candidate generation and selection (editable)'}</div>
     <div className="form-grid" style={{ marginTop: 4 }}>

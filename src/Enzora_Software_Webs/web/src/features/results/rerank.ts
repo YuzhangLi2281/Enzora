@@ -3,7 +3,42 @@
  *  Re-ranking only recomputes the weighted final_score from the already
  *  normalized components — it never re-runs models. */
 
-import type { Candidate } from '../../shared/api/contracts';
+import type { Candidate, RunRequest } from '../../shared/api/contracts';
+
+/** Exact decomposition of the frozen-reference score, with uncertainty kept
+ * separate from objective utility. No model prediction is changed here. */
+export function candidateScoreEvidence(candidate: Candidate, selection: RunRequest['selection']) {
+  const policy = selection.score_policy;
+  if (policy?.method !== 'input_reference_three_model_llm_v3') return null;
+  const reference = selection.reference;
+  if (!reference || !selection.confidence) throw new Error('Missing scoring reference or applied policy.');
+  if ([candidate.activity_log10,candidate.ph_opt,candidate.ddg,reference.activity_log10,reference.ph_opt].some(v=>typeof v!=='number'||!Number.isFinite(v)))
+    throw new Error('Complete finite model predictions and WT reference are required.');
+  if (Object.values(selection.weights).some(v=>!Number.isFinite(v)||v<0||v>1) || Math.abs(Object.values(selection.weights).reduce((a,b)=>a+b,0)-1)>1e-8 ||
+      Object.values(selection.confidence).some(v=>!Number.isFinite(v)||v<0||v>1)) throw new Error('Invalid applied scoring policy.');
+  const total = Object.entries(selection.weights).reduce((n,[key,value]) => n + value*selection.confidence![key as keyof typeof selection.weights], 0);
+  if (!Number.isFinite(total) || total <= 0) throw new Error('Invalid applied scoring policy.');
+  const target = policy.target_ph;
+  const models = ([['activity','kcat','activity_sigma_log10'], ['ph','ph','ph_uncertainty'], ['stability','stability','stability_uncertainty']] as const).map(([key,scaleKey,uncertaintyKey]) => {
+    const uncertainty = candidate[uncertaintyKey];
+    const scale = policy.scales[scaleKey], uncertaintyScale = policy.uncertainty_scales[scaleKey];
+    const gain = key === 'activity' ? Number(candidate.activity_log10)-reference.activity_log10
+      : key === 'ph' ? (target === null ? 0 : Math.abs(reference.ph_opt-target)-Math.abs(Number(candidate.ph_opt)-target))
+      : -Number(candidate.ddg);
+    if (typeof uncertainty !== 'number' || !Number.isFinite(uncertainty) || uncertainty < 0 ||
+        !Number.isFinite(scale) || scale <= 0 || !Number.isFinite(uncertaintyScale) || uncertaintyScale <= 0 || !Number.isFinite(gain))
+      throw new Error(`Missing or invalid ${key} uncertainty/reference.`);
+    const reliability = 1/(1+uncertainty/uncertaintyScale);
+    const z = gain/scale;
+    const utility = z >= 0 ? 1/(1+Math.exp(-z)) : Math.exp(z)/(1+Math.exp(z));
+    const influence = selection.weights[key]*selection.confidence![key]/total*reliability;
+    return {key, uncertainty, uncertaintyScale, reliability, utility, influence, contribution: influence*utility};
+  });
+  const neutral = .5*models.reduce((n,m)=>n+selection.weights[m.key]*selection.confidence![m.key]/total*(1-m.reliability),0);
+  const score = neutral+models.reduce((n,m)=>n+m.contribution,0);
+  if (!Number.isFinite(score) || score < 0 || score > 1) throw new Error('Invalid reconstructed candidate score.');
+  return {models,neutral,score};
+}
 
 function minmax(values: number[]): number[] {
   const lo = Math.min(...values);
@@ -26,7 +61,7 @@ export function rerankCandidates(
   for (const candidate of candidates) {
     if ([candidate.activity_log10, candidate.ph_opt, candidate.ddg].some((v) => typeof v !== 'number' || !Number.isFinite(v))) throw new Error('Complete finite scorer predictions are required.');
   }
-  if (Object.values(weights).some((v) => !Number.isFinite(v) || v < 0)) throw new Error('Invalid score weights.');
+  if (Object.values(weights).some((v) => !Number.isFinite(v) || v < 0 || v > 1) || Math.abs(Object.values(weights).reduce((a,b)=>a+b,0)-1)>1e-8) throw new Error('Invalid score weights.');
   if (selection.confidence && Object.values(selection.confidence).some((v) => !Number.isFinite(v) || v < 0 || v > 1)) throw new Error('Invalid reliability controls.');
   const effective = selection.confidence ? { ph: weights.ph * selection.confidence.ph, activity: weights.activity * selection.confidence.activity, stability: weights.stability * selection.confidence.stability } : weights;
   const act = candidates.map((c) => Number(c.activity_log10));
@@ -52,7 +87,7 @@ export function rerankCandidates(
       const referencePolicy = c.score_normalization === 'input_reference_three_model_llm_v3';
       if (referencePolicy) {
         const components = [c.ph_component, c.activity_component, c.stability_component];
-        if (components.some(v => typeof v !== 'number' || !Number.isFinite(v))) throw new Error('Frozen reference components are required.');
+        if (components.some(v => typeof v !== 'number' || !Number.isFinite(v) || v < 0 || v > 1)) throw new Error('Frozen reference components are required.');
         return { ...c, final_score: (wp * Number(c.ph_component) + wa * Number(c.activity_component) + ws * Number(c.stability_component)) / denom };
       }
       let phC = 0;
@@ -79,7 +114,7 @@ export function rerankCandidates(
 
 export function normalizedWeights(weights: { ph: number; activity: number; stability: number }) {
   const total = Number(weights.ph ?? 0) + Number(weights.activity ?? 0) + Number(weights.stability ?? 0);
-  if (total <= 0 || Object.values(weights).some((v) => !Number.isFinite(v) || v < 0)) throw new Error('Invalid weights.');
+  if (Math.abs(total-1)>1e-8 || Object.values(weights).some((v) => !Number.isFinite(v) || v < 0 || v > 1)) throw new Error('Invalid weights.');
   return {
     ph: Number(weights.ph) / total,
     activity: Number(weights.activity) / total,

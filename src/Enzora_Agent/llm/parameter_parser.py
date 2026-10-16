@@ -18,7 +18,7 @@ SYSTEM_PROMPT = r"""
 4. UniStab 的 ddG 好坏方向由 stability_direction 决定；用户未明确时返回 null，不要猜。
 5. 用户没有明确给出的参数请返回 null，由程序保留原配置。
 6. allowed_positions / excluded_positions 使用 1-based 残基位置整数数组。
-7. weights 是偏好权重，不要求和为 1；程序会归一化。
+7. weights 是偏好权重，每项在 0–1 之间且三项之和必须等于 1；将用户的比例换算成符合条件的小数。
 8. 密码子优化与一个或多个目标表达物种由程序独立解析，不属于 candidate/selection；不要把“密码子优化”、宿主名称、拉丁学名或 TaxID 映射成筛选参数。
 9. candidate.top_k 是程序内部候选池大小，禁止根据用户自然语言修改，必须始终返回 null。
 10. 用户说“返回 N 个”“最终返回 N 个”“给我 N 个候选”“Top N”“最终选 N 个”等，N 只能写入 selection.top_k。

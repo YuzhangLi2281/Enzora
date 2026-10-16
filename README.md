@@ -144,8 +144,7 @@ Enzora combines the following projects. Their source, weights and licences remai
 - [VESM](https://github.com/ntranoslab/vesm): variant-effect modelling and VESM3.
 - [ProteinDPO](https://github.com/evo-design/protein-dpo): preference-aligned inverse folding; [ESM-IF1 / fair-esm](https://github.com/facebookresearch/esm).
 - [EnzGFM](https://github.com/DeepBxM/EnzGFM): enzyme-domain protein modelling.
-- [ESM3 and ESMC](https://github.com/evolutionaryscale/esm): protein representation backbones.
-- [Phenom](https://github.com/YuzhangLi2281/Phenom): enzyme–substrate kinetic prediction with Gaussian uncertainty heads.
+- [PHENOM](https://github.com/YuzhangLi2281/Phenom): enzyme–substrate kinetic prediction with Gaussian uncertainty heads.
 - [PSICHIC](https://github.com/huankoh/PSICHIC): hierarchical protein–ligand interaction modelling; upstream code uses Apache-2.0.
 - [EpHod](https://github.com/beckham-lab/EpHod): optimum-pH prediction.
 - [UniStab](https://github.com/xlab-BioAI/UniStab): protein stability prediction.
@@ -154,7 +153,6 @@ Enzora combines the following projects. Their source, weights and licences remai
 - [ESM Atlas](https://www.biohub.ai/esm/protein/atlas/api-docs/): protein records, structures and SAE feature search.
 - [UMAP](https://github.com/lmcinnes/umap), [Plotly](https://github.com/plotly/plotly.js) and [NGL](https://github.com/nglviewer/ngl): sequence and molecular visualization.
 - [Kazusa Codon Usage Database](https://www.kazusa.or.jp/codon/): host-specific codon usage.
-- [AnewOmni](https://anewbt.com/research/anewomni/): scientific illustration reference. The adapted protein decoration credits Kong et al., Fig. 1, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), [DOI](https://doi.org/10.64898/2026.03.12.711044).
 
 We thank [IDDLab](https://github.com/Intelligent-Drug-Discovery-Lab) and [Theta Team](https://www.thetateam.net/) for scientific guidance and project support.
 

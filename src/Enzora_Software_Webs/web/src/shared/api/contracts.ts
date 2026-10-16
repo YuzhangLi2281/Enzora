@@ -27,11 +27,19 @@ export interface RunRequest {
     stability_operator: "none" | "le" | "ge";
     stability_threshold: number | null;
     confidence?: { ph: number; activity: number; stability: number };
+    score_policy?: {
+      method: string;
+      target_ph: number | null;
+      scales: {kcat: number; ph: number; stability: number};
+      uncertainty_scales: {kcat: number; ph: number; stability: number};
+    };
+    reference?: {activity_log10: number; ph_opt: number};
     weights: { ph: number; activity: number; stability: number };
     top_k: number;
   };
   llm: {
     enabled: boolean;
+    auto_balance?: boolean;
     parameter_parsing: boolean;
     result_analysis: boolean;
     analysis_fail_open: boolean;

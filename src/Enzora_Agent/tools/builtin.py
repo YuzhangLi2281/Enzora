@@ -192,10 +192,10 @@ def register_configured_tools(registry, config: dict) -> list[str]:
 
 
 BALANCE_TOOL_SCHEMA = {'type': 'function', 'function': {
-    'name': 'balance_scores', 'description': 'Apply user preferences and evidence-informed reliability controls. Does not advance phases.',
+    'name': 'balance_scores', 'description': 'Apply user preferences and evidence-informed reliability controls. Every value must be in [0,1]; preference weights must sum to 1. Does not advance phases.',
     'parameters': {'type':'object','additionalProperties':False,'required':['weights','confidence'],
         'properties':{name:{'type':'object','additionalProperties':False,'required':['activity','ph','stability'],
-            'properties':{key:{'type':'number','minimum':0,**({'maximum':1} if name=='confidence' else {})}
+            'properties':{key:{'type':'number','minimum':0,'maximum':1}
                           for key in ('activity','ph','stability')}} for name in ('weights','confidence')}}}}
 
 

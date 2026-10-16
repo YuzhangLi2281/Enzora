@@ -217,11 +217,6 @@ def parse_parameters(request_text: str, *, candidate: dict[str, Any], selection:
     weights = resolved["selection"]["weights"]
     if resolved["selection"]["target_ph"] is None and weights["ph"] > 0:
         raise ValueError("AI 建议了 pH 权重，但未识别到明确目标 pH。请补充例如“目标 pH 7.5”，或将 pH 权重设为 0。")
-    total = sum(weights.values())
-    if total <= 0:
-        raise ValueError("至少一个目标权重需要大于 0。")
-    for key in weights:
-        weights[key] /= total
     validate_parameters(resolved)
     clarification = parsed.get("clarification")
     if isinstance(clarification, list):

@@ -239,6 +239,14 @@ class FixedEnzymeWorkflow:
                 cfg['selection']['reference'] = reference
                 write_json(run_dir / 'scoring_reference.json', {
                     'reference': reference, 'score_policy': cfg['selection']['score_policy']})
+            selection_file = run_dir / 'selection.yaml'
+            accepted_snapshot = selection_file.read_text() if selection_file.exists() else None
+            if accepted_snapshot is not None:
+                accepted = yaml.safe_load(accepted_snapshot)
+                accepted['score_policy'] = cfg['selection']['score_policy']
+                if 'reference' in cfg['selection']:
+                    accepted['reference'] = cfg['selection']['reference']
+                cfg['selection'] = accepted
             if llm_cfg['enabled'] and llm_cfg.get('auto_balance', False):
                 from .core.screening import summarize_scorer_evidence
                 from .llm.gemini import MiniMaxClient
@@ -265,7 +273,11 @@ Preserve all user preference weights exactly. Use measured uncertainty evidence 
 uncertainty scales to choose confidence controls in [0,1]; explain each choice and units.
 Compare uncertainty only after normalization by its own model scale. Unknown uncertainty is
 unknown, never high/low confidence. These are reliability controls, not calibrated probabilities.
-Never claim a higher validated accuracy. After tool output, briefly explain the applied balance.""",
+The engine also applies each candidate's measured uncertainty through
+r_ki = 1 / (1 + u_ki / tau_i). Your controls define a run policy, not identical
+final influence for all candidates. Never change activity, pH or stability predictions.
+Never claim a higher validated accuracy. After tool output, explain the policy and
+candidate-specific uncertainty adjustment; do not describe global weights as candidate confidence.""",
                     user_prompt=json.dumps({'selection':previous,'scorer_evidence':evidence},ensure_ascii=False))
                 if len(applied) != 1:
                     raise ValueError('Assistant must apply exactly one confidence balance')
@@ -273,17 +285,11 @@ Never claim a higher validated accuracy. After tool output, briefly explain the 
                     stream.write(json.dumps({'provider':'minimax','model':llm_cfg['parameter_model'],
                         'reason':decision['message'],'previous_selection':previous,
                         'scorer_evidence':evidence,'calls':decision['calls']},ensure_ascii=False,allow_nan=False)+'\n')
-            selection_file = run_dir / 'selection.yaml'
-            if not selection_file.exists():
-                selection_file.write_text(yaml.safe_dump(cfg['selection']))
-            else:
-                # Carry confirmed user changes into the freshly measured reference policy.
-                accepted = yaml.safe_load(selection_file.read_text())
-                accepted['score_policy'] = cfg['selection']['score_policy']
-                if 'reference' in cfg['selection']:
-                    accepted['reference'] = cfg['selection']['reference']
-                cfg['selection'] = accepted
-                selection_file.write_text(yaml.safe_dump(accepted))
+            if selection_file.exists() and selection_file.read_text() != accepted_snapshot:
+                raise ValueError('Selection changed during automatic balancing; review and retry the run')
+            temporary_selection = selection_file.with_suffix('.yaml.tmp')
+            temporary_selection.write_text(yaml.safe_dump(cfg['selection']))
+            temporary_selection.replace(selection_file)
             rank_candidates(candidates, cfg['selection'])
             write_candidates_csv(run_dir / 'scorer_predictions.csv', candidates)
             self._phase(run_dir, 3, cfg)

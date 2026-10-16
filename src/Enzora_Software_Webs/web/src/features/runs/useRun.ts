@@ -34,6 +34,7 @@ export function useRun(jobId: string | null) {
   const [codonRows, setCodonRows] = useState<HostProfile[]>([]);
   const [analysisText, setAnalysisText] = useState<string | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [balanceDecision, setBalanceDecision] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reconnecting, setReconnecting] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -44,6 +45,7 @@ export function useRun(jobId: string | null) {
     let refreshing = false;
     let finished = false;
     let requestLoaded = false;
+    let decisionLoaded = false;
     let unsubscribe: (() => void) | undefined;
     const store = useApp.getState();
     store.setActiveJob(jobId);
@@ -60,6 +62,7 @@ export function useRun(jobId: string | null) {
     setWtSequence(cached?.sequence ?? "");
     setAnalysisText(null);
     setAnalysisError(null);
+    setBalanceDecision(null);
     setError(null);
     setReconnecting(false);
     setLoading(Boolean(jobId));
@@ -122,6 +125,17 @@ export function useRun(jobId: string | null) {
           const current=useApp.getState().runRequest;
           if(current && JSON.stringify(current.selection)!==JSON.stringify(run.applied_selection))
             useApp.getState().setRunRequest({...current,selection:run.applied_selection});
+        }
+        if (!decisionLoaded && run.stages.some(stage=>stage.index===4 && stage.finished_at!=null)) {
+          try {
+            const audit = await api.readArtifact(id,'llm_balance_decisions.jsonl');
+            const last = JSON.parse(audit.trim().split('\n').at(-1)!);
+            if (typeof last.reason !== 'string') throw new Error('Invalid Assistant balancing audit.');
+            if (!disposed) setBalanceDecision(last.reason);
+            decisionLoaded = true;
+          } catch (failure) {
+            if (!(failure instanceof ApiError && failure.status===404)) throw failure;
+          }
         }
         setError(null);
         setLoading(false);
@@ -298,6 +312,7 @@ export function useRun(jobId: string | null) {
     logs,
     analysisText,
     analysisError,
+    balanceDecision,
     error,
     loading,
     reconnecting,

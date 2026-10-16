@@ -9,3 +9,7 @@ src/Enzora_Software_Cache/
 *.pt
 *.pth
 *.ckpt
+
+# Training is maintained outside the inference release.
+src/Enzora_Screening/PheNom/train/
+src/Enzora_Screening/esm/

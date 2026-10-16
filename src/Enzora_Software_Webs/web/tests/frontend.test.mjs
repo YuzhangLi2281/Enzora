@@ -358,7 +358,7 @@ test("confidence-adjusted preview uses PHENOM activity and rejects missing predi
   ];
   const result = rerankCandidates(
     rows,
-    { ph: 0, activity: 1, stability: 1 },
+    { ph: 0, activity: 0.5, stability: 0.5 },
     {
       confidence: { ph: 1, activity: 0, stability: 1 },
       stability_direction: "lower_is_better",
@@ -572,4 +572,26 @@ test('Assistant forwards real progress and bounded conversation context before t
  const history=[{role:'user',text:'Find P01308'}];
  const result=await h.load('shared/api/client').api.chat('Show its metadata',null,null,undefined,e=>progress.push(e),history);
  assert.deepEqual(JSON.parse(JSON.stringify(progress)),[event]);assert.deepEqual(sent.history,history);assert.equal(result.message,'Retrieved protein');
+});
+
+
+test("candidate evidence changes with uncertainty and reconstructs the frozen score", () => {
+  const {candidateScoreEvidence, rerankCandidates} = harness().load("features/results/rerank");
+  const selection = {...request.selection,confidence:{activity:.8,ph:.9,stability:1},
+    reference:{activity_log10:1,ph_opt:6},score_policy:{method:'input_reference_three_model_llm_v3',target_ph:8,
+      scales:{kcat:1,ph:1,stability:1},uncertainty_scales:{kcat:1,ph:.5,stability:2}}};
+  const candidate = {mutation:'A1G',activity_log10:2,ph_opt:7,ddg:-1,
+    activity_sigma_log10:.1,ph_uncertainty:.5,stability_uncertainty:2};
+  const a = candidateScoreEvidence(candidate,selection);
+  const b = candidateScoreEvidence({...candidate,activity_sigma_log10:10},selection);
+  assert.ok(a.models[0].influence > b.models[0].influence);
+  assert.ok(a.score > b.score);
+  assert.ok(b.neutral > a.neutral);
+  const components = Object.fromEntries(a.models.map(m=>[`${m.key}_component`,.5+m.reliability*(m.utility-.5)]));
+  const ranked = rerankCandidates([{...candidate,...components,score_normalization:'input_reference_three_model_llm_v3'}],selection.weights,selection);
+  assert.ok(Math.abs(a.score-ranked[0].final_score)<1e-12);
+  assert.equal(candidate.activity_log10,2);
+  assert.throws(()=>candidateScoreEvidence({...candidate,ph_uncertainty:null},selection));
+  assert.throws(()=>candidateScoreEvidence({...candidate,activity_log10:null},selection));
+  assert.throws(()=>candidateScoreEvidence({...candidate,stability_uncertainty:-1},selection));
 });

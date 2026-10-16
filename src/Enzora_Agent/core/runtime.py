@@ -160,6 +160,7 @@ CANDIDATE_CSV_FIELDS = [
     "ph_component",
     "stability_component",
     "final_score",
+    "score_evidence",
     "passed",
     "reasons",
     "blosum62",
@@ -190,6 +191,7 @@ def write_candidates_csv(path: Path, candidates: list[Candidate]) -> None:
         for candidate in candidates:
             data = candidate.to_dict()
             data["substitutions"] = json.dumps(candidate.substitutions, ensure_ascii=False)
+            data['score_evidence'] = json.dumps(candidate.score_evidence, ensure_ascii=False, allow_nan=False) if candidate.score_evidence is not None else ''
             data["reasons"] = "; ".join(candidate.reasons)
             writer.writerow({key: data.get(key) for key in CANDIDATE_CSV_FIELDS})
     temporary.replace(path)

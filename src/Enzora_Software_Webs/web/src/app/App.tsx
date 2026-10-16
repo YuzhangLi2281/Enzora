@@ -105,7 +105,6 @@ export default function App() {
                 <a href="mailto:zhaoyupu6@gmail.com"><strong>Yupu Zhao</strong><span>zhaoyupu6@gmail.com</span><span aria-hidden="true">↗</span></a>
               </div>
             </section>
-            <details className="teams-asset-credits"><summary>{lang==='zh'?'素材来源':'Artwork sources'}</summary><p>Kong et al. · AnewOmni, Fig. 1. Background removed, colour-quantized and vectorized. <a href="https://doi.org/10.64898/2026.03.12.711044" target="_blank" rel="noopener noreferrer">Source ↗</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>. Other molecular decorations use RDKit molecular graphs and the 2FGY structure from the PDB.</p></details>
             <nav className="teams-workspace-links" aria-label={lang === 'zh' ? '工作区管理' : 'Workspace utilities'}>
               <Link to="/workbench">{lang === 'zh' ? '返回工作区' : 'Back to Workspace'} <span aria-hidden="true">↗</span></Link>
               <Link to="/history">{lang === 'zh' ? '运行记录' : 'History'}</Link>

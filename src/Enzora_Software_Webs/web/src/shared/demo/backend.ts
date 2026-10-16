@@ -734,13 +734,14 @@ export const demo = {
       values.some(
         (k) =>
           !Number.isFinite(weights[k]) ||
-          weights[k] < 0 ||
+          weights[k] < 0 || weights[k] > 1 ||
           !Number.isFinite(confidence[k]) ||
           confidence[k] < 0 ||
           confidence[k] > 1,
       )
     )
       throw new Error("Invalid balance parameters.");
+    if (Math.abs(values.reduce((n,k)=>n+weights[k],0)-1)>1e-8) throw new Error("Preference weights must sum to 1.");
     const total = values.reduce((n, k) => n + weights[k] * confidence[k], 0);
     if (
       total <= 0 ||

@@ -78,11 +78,29 @@ def rank_candidates(candidates: list[Candidate], selection: dict) -> list[Candid
             c.passed = False
             c.reasons.append("UniStab ΔΔG 低于阈值")
 
+        if any(not math.isfinite(v) or not 0 <= v <= 1 for v in
+               (c.ph_component, c.activity_component, c.stability_component)):
+            raise ValueError(f'Candidate {c.mutation} has a score component outside [0,1]')
         c.final_score = (
             float(weights["ph"]) * float(c.ph_component)
             + float(weights["activity"]) * float(c.activity_component)
             + float(weights["stability"]) * float(c.stability_component)
         ) / denom
+        c.score_evidence = None
+        if reference_components is not None:
+            evidence = reference_components[i]['evidence']
+            terms = {}
+            for key, name in (('activity', 'kcat'), ('ph', 'ph'), ('stability', 'stability')):
+                term = dict(evidence[name])
+                term['influence'] = weights[key] * term['reliability']
+                term['contribution'] = term['influence'] * term['utility']
+                terms[key] = term
+            neutral = .5 * sum(weights[key] * (1 - term['reliability']) for key, term in terms.items())
+            reconstructed = neutral + sum(term['contribution'] for term in terms.values())
+            if not math.isclose(reconstructed, c.final_score, abs_tol=1e-12):
+                raise ValueError('Candidate evidence does not reconstruct the score')
+            c.score_evidence = {'models': terms, 'neutral_contribution': neutral,
+                                'score': reconstructed, 'method': 'uncertainty_shrinkage_decomposition'}
 
     return sorted(candidates, key=lambda c: (not c.passed, -(c.final_score or 0.0)))
 
@@ -359,7 +377,7 @@ def reference_score_components(candidates, reference: dict, policy: dict) -> lis
                  'stability': -float(c.ddg)}
         uncertainties = {'kcat': c.activity_sigma_log10, 'ph': c.ph_uncertainty,
                          'stability': c.stability_uncertainty}
-        components = {}
+        components = {'evidence': {}}
         for name in keys:
             u = uncertainties[name]
             if type(u) not in (int,float) or not math.isfinite(u) or u < 0 or not math.isfinite(gains[name]):
@@ -368,6 +386,9 @@ def reference_score_components(candidates, reference: dict, policy: dict) -> lis
             raw = 1/(1+math.exp(-z)) if z >= 0 else math.exp(z)/(1+math.exp(z))
             reliability = 1/(1+u/policy['uncertainty_scales'][name])
             components[name] = .5 + reliability*(raw-.5)
+            components['evidence'][name] = {'gain': gains[name], 'utility': raw,
+                'uncertainty': u, 'uncertainty_scale': policy['uncertainty_scales'][name],
+                'reliability': reliability}
         output.append(components)
     return output
 

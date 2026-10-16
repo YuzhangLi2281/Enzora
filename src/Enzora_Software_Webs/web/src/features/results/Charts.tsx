@@ -4,7 +4,8 @@
  *  backend PNGs remain available as downloads via /figures. */
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import type { Candidate } from "../../shared/api/contracts";
+import { candidateScoreEvidence } from "./rerank";
+import type { Candidate, RunRequest } from "../../shared/api/contracts";
 import { t } from "../../shared/lib/i18n";
 import { useApp } from "../../app/store";
 import { PlotWrap } from "../../shared/ui/PlotWrap";
@@ -472,6 +473,10 @@ export function MutationAtlas({
       .filter((cell) => cell.count > 1)
       .map((cell) => ({ ...cell, intensity: cell.count / peak }));
   }, [points]);
+  const scored = points.map(p => p.score).filter((v): v is number => v !== null && Number.isFinite(v));
+  const scoreMin = scored.length ? Math.min(...scored) : null;
+  const scoreMax = scored.length ? Math.max(...scored) : null;
+  const colorPosition = (score: number) => scoreMin === scoreMax ? 0.5 : (score - scoreMin!) / (scoreMax! - scoreMin!);
   // Keep the 1,000 glyphs stable while only the camera or tooltip changes.
   const dots = useMemo(
     () =>
@@ -482,15 +487,9 @@ export function MutationAtlas({
           cx={p.px}
           cy={p.py}
           r={p.mutation === picked ? 4.5 : p.rank ? 3.1 : 1.55}
-          fill={
-            p.rank
-              ? "var(--atlas-selected)"
-              : p.score === null
-                ? "var(--atlas-unknown)"
-                : macaron
-                  ? `color-mix(in srgb, ${p.score < 0.5 ? "#8AC3C1" : "#B497C7"} ${(1 - (p.score < 0.5 ? p.score * 2 : (p.score - 0.5) * 2)) * 100}%, ${p.score < 0.5 ? "#B497C7" : "#F1C8DB"})`
-                  : `hsl(${225 - p.score * 35} ${78 - p.score * 24}% ${43 + p.score * 24}%)`
-          }
+          fill={p.score === null ? "var(--atlas-unknown)" : `hsl(${213 - colorPosition(p.score) * 10} 65% ${87 - colorPosition(p.score) * 56}%)`}
+          stroke={p.rank ? "var(--atlas-selected)" : "none"}
+          strokeWidth={p.rank ? 1.2 : 0}
           opacity={p.rank || p.mutation === picked ? 1 : 0.9}
           onPointerEnter={() => {
             if (!drag.current) setHover(p);
@@ -503,7 +502,7 @@ export function MutationAtlas({
           </title>
         </circle>
       )),
-    [points, picked, macaron],
+    [points, picked, scoreMin, scoreMax],
   );
   const release = (cancelled = false) => {
     const d = drag.current;
@@ -753,8 +752,10 @@ export function MutationAtlas({
       </div>
       <div className="atlas-color-key">
         <span>{zh ? "综合分" : "Score"}</span>
-        <i />
-        <span>0 — 1</span>
+        <span>{scoreMax === null ? "—" : scoreMax.toFixed(3)}</span>
+        <i aria-hidden="true" />
+        <span>{scoreMin === null ? "—" : scoreMin.toFixed(3)}</span>
+        <small>{zh ? "当前结果范围 · 得分上限 1" : "Observed range · score bound 1"}</small>
       </div>
       <p className="atlas-method">
         {data
@@ -857,9 +858,8 @@ export function ScoreDistribution({
 }
 
 /** Replay real normalized components; time is presentation, never inference speed. */
-export function ScoringWaterfall({ rows, weights, confidence, zh, active }: {
-  rows: Candidate[]; weights: {activity:number;ph:number;stability:number};
-  confidence: {activity:number;ph:number;stability:number}; zh:boolean; active:boolean;
+export function ScoringWaterfall({ rows, selection, zh, active }: {
+  rows: Candidate[]; selection: RunRequest["selection"]; zh:boolean; active:boolean;
 }) {
   const chart=useRef<HTMLDivElement>(null);
   const [expanded, setExpanded] = useState(false);
@@ -869,13 +869,19 @@ export function ScoringWaterfall({ rows, weights, confidence, zh, active }: {
     return () => document.removeEventListener("fullscreenchange", update);
   }, []);
   const id=useId().replace(/:/g,'');
-  const models=[{key:'activity',name:'Phenom',color:'var(--score-activity)'},{key:'ph',name:'EpHod',color:'var(--score-ph)'},{key:'stability',name:'UniStab',color:'var(--score-stability)'}] as const;
-  const denominator=models.reduce((n,m)=>n+weights[m.key]*confidence[m.key],0);
-  const shares=models.map(m=>denominator>0?weights[m.key]*confidence[m.key]/denominator:0);
-  const values=rows.filter(c=>[c.activity_component,c.ph_component,c.stability_component].every(v=>typeof v==='number'&&Number.isFinite(v)));
-  const samples=values.filter((_,i)=>i%Math.max(1,Math.ceil(values.length/36))===0).map(c=>({mutation:c.mutation,
-    parts:models.map((m,i)=>shares[i]*Number(c[`${m.key}_component`]))}));
-  const fingerprint=JSON.stringify([shares,samples]);
+  const models=[{key:'activity',name:'PHENOM',color:'var(--score-activity)'},{key:'ph',name:'EpHod',color:'var(--score-ph)'},{key:'stability',name:'UniStab',color:'var(--score-stability)'}] as const;
+  const denominator=models.reduce((n,m)=>n+selection.weights[m.key]*(selection.confidence?.[m.key] ?? 1),0);
+  const shares=models.map(m=>denominator>0?selection.weights[m.key]*(selection.confidence?.[m.key] ?? 1)/denominator:0);
+  let evidenceError = '';
+  const invalid = rows.some(c => [c.activity_component,c.ph_component,c.stability_component].some(v => typeof v === 'number' && (!Number.isFinite(v) || v < 0 || v > 1)));
+  const values=rows.filter(c=>[c.activity_component,c.ph_component,c.stability_component].every(v=>typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=1));
+  const samples=values.filter((_,i)=>i%Math.max(1,Math.ceil(values.length/36))===0).map(c=>{
+    try {
+      const evidence = candidateScoreEvidence(c,selection);
+      return {mutation:c.mutation, parts:evidence ? [...evidence.models.map(m=>m.contribution),evidence.neutral] : models.map((m,i)=>shares[i]*Number(c[`${m.key}_component`]))};
+    } catch (error) { evidenceError=error instanceof Error ? error.message : String(error); return {mutation:c.mutation,parts:[]}; }
+  });
+  const fingerprint=JSON.stringify(samples);
   const [progress,setProgress]=useState(1);
   useEffect(()=>{
     if(!active || !values.length) return;
@@ -887,31 +893,35 @@ export function ScoringWaterfall({ rows, weights, confidence, zh, active }: {
     return ()=>cancelAnimationFrame(request);
   },[fingerprint,active]);
   const p=Math.max(0,Math.min(1,(progress*5000-600)/3600));
-  const y=(i:number)=>75+i/Math.max(1,samples.length-1)*220;
+  const y=(i:number)=>75+i/Math.max(1,samples.length-1)*210;
   const leading=samples[Math.min(samples.length-1,Math.floor(p*samples.length))];
   const mean=values.length?values.reduce((sum,c)=>sum+models.reduce((n,m,i)=>n+shares[i]*Number(c[`${m.key}_component`]),0),0)/values.length:null;
   return <div ref={chart} className="scoring-waterfall" data-replay={progress<1}>
     <div className="waterfall-heading"><strong>{zh?'各模型如何组成最终得分':'How the models contribute to the final score'}</strong><span>{values.length?`${values.length} ${zh?'条真实预测':'scored candidates'}`:zh?'等待评分分量':'Awaiting score components'}</span></div>
     <button type="button" className="chart-expand" disabled={!document.fullscreenEnabled} onClick={() => document.fullscreenElement ? document.exitFullscreen() : chart.current?.requestFullscreen()}>{expanded ? (zh ? '关闭整屏视图' : 'Close full screen') : (zh ? '整屏查看 ↗' : 'Expand chart ↗')}</button>
-    <svg viewBox="0 0 520 350" role="img" aria-label={zh?'偏好乘可信度归一化后的加权贡献':'Weighted contributions after normalizing preference times confidence'}>
+    {evidenceError && <p role="alert">{evidenceError}</p>}
+    {invalid && <p role="alert">{zh ? "检测到超出 0–1 的评分分量，请检查原始输出。" : "A score component is outside 0–1. Check the source predictions."}</p>}
+    <svg viewBox="0 0 520 350" role="img" aria-label={zh?'每条候选的模型证据与中性基线贡献':'Candidate-specific model evidence and neutral baseline contributions'}>
       <defs><clipPath id={`${id}-reveal`}><rect x="0" y="70" width="520" height={p*235}/></clipPath></defs>
-      {models.map((m,i)=><g key={m.key}>
-        <text x={65+i*190} y="18" textAnchor="middle">{m.name}</text>
-        <text x={65+i*190} y="38" textAnchor="middle" fill={m.color}>{(shares[i]*100).toFixed(1)}%</text>
-        <path d={`M${65+i*190},47 C${65+i*190},66 ${42+shares.slice(0,i).reduce((a,b)=>a+b,0)*430},56 ${42+shares.slice(0,i).reduce((a,b)=>a+b,0)*430},67`}
-          stroke={m.color} strokeWidth={shares[i]>0?3+shares[i]*12:1} strokeDasharray={shares[i]===0?'3 4':undefined} opacity={shares[i]===0?.3:.8} fill="none"/>
+      {[...models,{key:'neutral',name:zh?'中性基线':'Neutral',color:'var(--border)'}].map((m,i)=><g key={m.key}>
+        <rect x={42+i*116} y="18" width="10" height="10" rx="2" fill={m.color}/>
+        <text x={57+i*116} y="27">{m.name}</text>
       </g>)}
-      {!samples.length ? <text x="260" y="185" textAnchor="middle">{zh?'评分完成后，这里显示各模型对候选得分的贡献':'After screening, compare each model’s share of the score'}</text> : <g clipPath={`url(#${id}-reveal)`}>
-        {models.map((m,i)=>{
-          const upper=samples.map((s,j)=>`${42+s.parts.slice(0,i+1).reduce((a,b)=>a+b,0)*430},${y(j)}`);
-          const lower=[...samples].reverse().map((s,j)=>`${42+s.parts.slice(0,i).reduce((a,b)=>a+b,0)*430},${y(samples.length-1-j)}`);
-          return <path key={m.key} d={`M${upper.join(' L')} L${lower.join(' L')}Z`} fill={m.color} fillOpacity=".34" stroke={m.color} strokeWidth="1.5" strokeLinejoin="round"/>;
+      {!samples.length ? <text x="260" y="185" textAnchor="middle">{zh?'评分完成后，这里显示各模型对候选得分的贡献':'Candidate contributions appear after screening'}</text> : <g clipPath={`url(#${id}-reveal)`}>
+        {samples.map((sample,j) => {
+          let start = 42;
+          return <g key={sample.mutation}><title>{sample.mutation}</title>{[...models,{key:"neutral",color:"var(--border)"}].slice(0,sample.parts.length).map((m,i) => {
+            const width = sample.parts[i] * 430;
+            const x = start;
+            start += width;
+            return <rect key={m.key} x={x} y={y(j)} width={width} height={Math.min(12, 205 / samples.length)} fill={m.color} opacity=".78" />;
+          })}</g>;
         })}
       </g>}
-      {leading && p>0 && <g><circle cx={42+leading.parts.reduce((a,b)=>a+b,0)*430} cy={75+p*220} r="4" fill="var(--text)"/><text x="478" y={Math.min(302,83+p*220)} textAnchor="end">Σ {leading.parts.reduce((a,b)=>a+b,0).toFixed(3)}</text></g>}
+      {leading && p>0 && <g><circle cx={42+leading.parts.reduce((a,b)=>a+b,0)*430} cy={y(Math.min(samples.length-1,Math.floor(p*samples.length)))} r="4" fill="var(--text)"/><text x="478" y={Math.min(302,83+p*210)} textAnchor="end">Σ {leading.parts.reduce((a,b)=>a+b,0).toFixed(3)}</text></g>}
       <text x="42" y="334">0</text><text x="257" y="334" textAnchor="middle">0.5</text><text x="472" y="334" textAnchor="end">1.0</text>
     </svg>
-    <div className="waterfall-summary"><span>Σ Wᵢ = {denominator>0?'1.000':'—'}</span><span>{zh?'平均综合分':'Mean composite'} <strong>{mean?.toFixed(3)??'—'}</strong></span></div>
-    <p>{zh?'每一行是一条候选序列，色带越宽，表示该模型贡献的分数越多。动画回放已保存的预测数据。':'Each row is a candidate; wider bands mean a larger contribution to its score. The animation replays saved predictions.'}</p>
+    <div className="waterfall-summary"><span>{zh?'逐候选证据':'Candidate-level evidence'}</span><span>{zh?'平均综合分':'Mean composite'} <strong>{mean?.toFixed(3)??'—'}</strong></span></div>
+    <p>{zh?'每一行是一条候选序列，色带越宽，表示该模型贡献的分数越多。动画回放已保存的预测数据。':'Each row is a candidate; colored segments show prediction evidence and grey shows the neutral baseline retained under uncertainty, on the fixed 0–1 scale. The animation replays saved predictions.'}</p>
   </div>;
 }

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import fields
+import json
 from typing import Any
 
 from Enzora_Agent.core.screening import rank_candidates
@@ -14,6 +15,8 @@ def rerank_candidates(rows: list[dict[str, Any]], selection: dict) -> list[dict[
     candidates = []
     for row in rows:
         item = {k: v for k, v in row.items() if k in allowed}
+        if isinstance(item.get('score_evidence'), str):
+            item['score_evidence'] = json.loads(item['score_evidence']) if item['score_evidence'] else None
         for key in numeric & item.keys():
             item[key] = None if item[key] in ('', None) else float(item[key])
         candidates.append(Candidate(**item))

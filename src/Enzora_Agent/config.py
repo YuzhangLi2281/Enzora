@@ -59,10 +59,12 @@ def validate_weights(values: dict, *, confidence: bool = False) -> None:
     if not isinstance(values, dict) or set(values) != {'ph', 'activity', 'stability'}:
         raise ConfigError('Exactly ph/activity/stability are required')
     for key, value in values.items():
-        if type(value) not in (int, float) or not math.isfinite(value) or value < 0 or (confidence and value > 1):
-            raise ConfigError(f'Invalid {key}: expected a finite nonnegative number' + (' <= 1' if confidence else ''))
+        if type(value) not in (int, float) or not math.isfinite(value) or not 0 <= value <= 1:
+            raise ConfigError(f'Invalid {key}: expected a finite number between 0 and 1')
     if sum(values.values()) <= 0:
         raise ConfigError('At least one weight/confidence must be positive')
+    if not confidence and not math.isclose(sum(values.values()), 1.0, rel_tol=0, abs_tol=1e-8):
+        raise ConfigError('Preference weights must sum to 1')
 
 
 def load_config(path: str | Path) -> dict[str, Any]:

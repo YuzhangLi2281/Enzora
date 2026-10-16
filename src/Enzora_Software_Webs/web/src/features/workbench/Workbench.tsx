@@ -7,8 +7,9 @@ import { useRun } from "../runs/useRun";
 import { useApp } from "../../app/store";
 import { ChatPanel } from "../experiment/ChatPanel";
 import { WorkspaceIntro } from "./WorkspaceIntro";
+import { candidateScoreEvidence } from "../results/rerank";
 import { MutationAtlas, ScoreDistribution, ScoringWaterfall } from "../results/Charts";
-import proteinIllustration from "../../../../../../resource/docs/anewomni-protein.svg";
+import proteinIllustration from "../../../../../../resource/docs/enzora-protein-decoration.svg";
 import moleculeDecoration from "../../../../../../resource/docs/enzora-molecule-decoration.svg";
 import dnaDecoration from "../../../../../../resource/docs/enzora-dna-decoration.svg";
 import {
@@ -27,7 +28,7 @@ import {
 const scorers = [
   {
     key: "activity",
-    name: "Phenom",
+    name: "PHENOM",
     field: "activity_log10",
     label: "Activity · log₁₀ kcat",
     labelZh: "活性 · log₁₀ kcat",
@@ -70,7 +71,8 @@ export function Workbench() {
   const [size, setSize] = useState(1000);
   const [order, setOrder] = useState(1);
   const [tab, setTab] = useState(0);
-  const [selection, setSelection] = useState(defaultSelection);
+  const [selection, setSelection] = useState(() => defaultSelection(isDemo() ? 7.5 : null));
+  const [evidencePicked, setEvidencePicked] = useState("");
   const [host, setHost] = useState("e_coli");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -126,15 +128,14 @@ export function Workbench() {
     const mutation = residue.getBoundingClientRect();
     area.scrollTop += mutation.top - box.top - (area.clientHeight - mutation.height) / 2;
   }, [current?.mutation, current?.mutant_sequence]);
-  const weights = selection.weights,
-    confidence = selection.confidence!;
-  const total = Object.keys(weights).reduce(
-    (n, k) =>
-      n +
-      weights[k as keyof typeof weights] *
-        confidence[k as keyof typeof weights],
-    0,
-  );
+  const evidenceRows = run.rawCandidates.filter(c => typeof c.final_score === "number");
+  const evidenceCandidate = evidenceRows.find(c => c.mutation === evidencePicked) ?? evidenceRows[0];
+  let evidence = null;
+  let evidenceError = "";
+  try {
+    if (evidenceCandidate?.score_normalization === 'input_reference_three_model_llm_v3')
+      evidence = candidateScoreEvidence(evidenceCandidate, selection);
+  } catch (failure) { evidenceError = failure instanceof Error ? failure.message : String(failure); }
   useEffect(() => {
     if (runRequest) {
       setSequence(runRequest.sequence);
@@ -257,6 +258,10 @@ export function Workbench() {
             ? "Phenom 需要底物 SMILES。"
             : "Phenom requires the substrate SMILES.",
         );
+      if (selectionError(selection) === "ph_required") {
+        setTab(1);
+        throw new Error(zh ? "请在 Settings 中填写本次优化的目标 pH。" : "Enter a target pH in Settings before starting this pH optimization task.");
+      }
       if (selectionError(selection))
         throw new Error(
           zh
@@ -303,23 +308,9 @@ export function Workbench() {
         { replace: true },
       );
     });
-  const applyBalance = async () => {
-    if (!jobId) throw new Error("Start a run first.");
-    await api.balanceRun(jobId, weights, confidence);
-    if (runRequest) {
-      const updated = {
-        ...runRequest,
-        selection: { ...runRequest.selection, weights, confidence },
-      };
-      setRunRequest(updated);
-      rememberRequest(jobId, updated);
-    }
-    setNotice(zh ? "配平已应用。" : "Balance applied.");
-  };
   const next = () =>
     void perform(async () => {
       if (!jobId || !waiting || !progress?.next_phase) return;
-      if (phase === 2) await applyBalance();
       await api.advanceRun(jobId, progress.next_phase);
       go(progress.next_phase);
       run.retry();
@@ -371,16 +362,8 @@ export function Workbench() {
     setLigand("O=C=O");
     setSize(1000);
     setOrder(1);
-    setSelection(defaultSelection());
+    setSelection(defaultSelection(7.5));
   };
-  const balanceLocked = !active || phase > 2;
-  const balanceDirty =
-    !!runRequest &&
-    scorers.some(
-      ({ key }) =>
-        weights[key] !== runRequest.selection.weights[key] ||
-        confidence[key] !== runRequest.selection.confidence?.[key],
-    );
   return (
     <>
       <main ref={scroll} id="main-content" className="process-scroll">
@@ -399,12 +382,13 @@ export function Workbench() {
             <div className="section-heading">
               <div>
                 <h1>Enzora</h1>
-                <h2 className="library-stage-title">{zh ? "酶突变库构建" : "Enzyme Mutation Database Construction"}</h2>
+                <p className="workspace-mission">{zh ? "Enzora 以自动化突变、筛选与优化，加速酶工程。" : "Automated mutation–screening–optimization with Enzora accelerates enzyme engineering"}</p>
                 <p>
                   {zh
                     ? "输入起始酶序列和底物，设置要生成多少条突变序列。三个模型共同提出突变，建立下一步用于筛选的候选库。"
-                    : "Enter your enzyme and substrate, then choose how many variants to make. Three models propose mutations to build a library for screening."}
+                    : "Enter an enzyme and substrate, then choose a mutation budget to build candidates for screening."}
                 </p>
+                <h2 className="library-stage-title">{zh ? "酶突变库构建" : "Enzyme Mutation Database Construction"}</h2>
               </div>
             </div>
             <div className="library-composition">
@@ -549,6 +533,10 @@ export function Workbench() {
                         />
                       </label>
                       <label className="field">
+                        {zh ? "目标 pH（可选）" : "Target pH (optional)"}
+                        <input type="number" min={0} max={14} step={0.1} value={selection.target_ph ?? ""} disabled={active} onChange={e => setSelection({...selection,target_ph:e.target.value === "" ? null : Number(e.target.value),weights:defaultSelection(e.target.value === "" ? null : Number(e.target.value)).weights})} />
+                      </label>
+                      <label className="field">
                         Top-K
                         <input
                           type="number"
@@ -645,7 +633,7 @@ export function Workbench() {
                 <p>
                   {zh
                     ? "预测每条候选的活性、最适 pH 和稳定性。在右侧设置你更看重的性质，助手会参考预测的不确定性，帮助调整最终排序中各项分数的占比。"
-                    : "Predict activity, optimal pH and stability for each candidate. Set your priorities on the right; the Assistant reviews prediction uncertainty to help balance the final ranking."}
+                    : "Predict activity, optimal pH and stability for each candidate. The Assistant reviews uncertainty; inspect each candidate’s evidence and ranking on the right."}
                 </p>
               </div>
             </div>
@@ -715,7 +703,7 @@ export function Workbench() {
                     </article>
                   );
                 })}
-                <ScoringWaterfall rows={run.rawCandidates} weights={weights} confidence={confidence} zh={zh} active={view===2}/>
+                <ScoringWaterfall rows={run.rawCandidates} selection={selection} zh={zh} active={view===2}/>
                 <details className="phenom-model-details">
                   <summary>{zh ? "Phenom · 模型架构与不确定性" : "Phenom · Architecture & uncertainty"}</summary>
                   <p>{zh
@@ -723,7 +711,7 @@ export function Workbench() {
                     : "Protein sequences and substrate molecular graphs feed a hierarchical graph network over residues, pockets, atoms and motifs. Bidirectional attention constructs an interpretable interaction fingerprint to predict log₁₀(kcat) and log₁₀(Km)."}</p>
                   <p>{zh
                     ? "原生 Gaussian head 同时输出均值 μ 与标准差 σ。注意力揭示模型关注位置，不代表实测催化机制；σ 不等同于校准置信度。Confidence 是用户设置的配平参数。"
-                    : "Native Gaussian heads output a mean μ and standard deviation σ. Attention indicates model focus rather than experimentally established catalytic mechanisms. σ is not calibrated confidence; Confidence sets user-defined balancing preferences."}</p>
+                    : "Native Gaussian heads output a mean μ and standard deviation σ. Attention indicates model focus rather than experimentally established catalytic mechanisms. σ describes predictive uncertainty and is not a calibrated probability. The Agent sets a reliability policy, which is applied to each candidate’s measured uncertainty."}</p>
                 </details>
                 <div className="agent-decision">
                   <span className="copilot-orb" />
@@ -738,8 +726,8 @@ export function Workbench() {
                           : "This run has stopped. Check the run message and saved prediction outputs."
                         : waiting && phase === 2
                         ? zh
-                          ? "评分已就绪。调整配平后，到结果页筛选 Top-K。"
-                          : "Scores are ready. Review the balance, then select Top-K on the Output page."
+                          ? "评分已就绪。检查候选依据后，继续到结果页筛选 Top-K。"
+                          : "Scores are ready. Inspect candidate evidence, then continue to Output."
                         : run.meta?.status === "success"
                           ? zh
                             ? "Top-K 与报告已生成。可在结果页检查序列并导出。"
@@ -762,107 +750,33 @@ export function Workbench() {
               <div className="design-space">
                 <div className="balance-settings">
                   <div className="input-heading">
-                    <h3>{zh ? "评分配平" : "Score balance"}</h3>
-                    <span
-                      className="balance-status"
-                      data-dirty={balanceDirty}
-                      role="status"
-                    >
-                      {!jobId || !active
-                        ? zh
-                          ? "下轮运行设置"
-                          : "Next run settings"
-                        : balanceDirty
-                          ? zh
-                            ? "有未应用修改"
-                            : "Unapplied changes"
-                          : zh
-                            ? "已应用"
-                            : "Applied"}
-                    </span>
+                    <h3>{zh ? "候选评分依据" : "Candidate score evidence"}</h3>
+                    <span className="balance-status">{evidence ? (zh ? "逐候选计算" : "Candidate-specific") : (zh ? "等待预测" : "Awaiting predictions")}</span>
                   </div>
-                  <p className="balance-formula">
-                    {zh
-                      ? "偏好表示你有多看重这项性质；降低可信度，就会减少该模型对最终排序的影响。"
-                      : "Preferences set your priorities. Lower confidence gives a predictor less influence on the final ranking."}
-                  </p>
-                  <div className="balance-bar">
-                    {scorers.map((m) => (
-                      <span
-                        key={m.key}
-                        style={{
-                          width: `${total ? ((weights[m.key] * confidence[m.key]) / total) * 100 : 0}%`,
-                          background: m.color,
-                        }}
-                      />
-                    ))}
-                  </div>
-                  {scorers.map((m) => (
-                    <div className="balance-control" key={m.key}>
-                      <div>
-                        <strong>{m.name}</strong>
-                        <span>
-                          {total
-                            ? Math.round(
-                                ((weights[m.key] * confidence[m.key]) / total) *
-                                  100,
-                              )
-                            : 0}
-                          %
-                        </span>
+                  <p className="balance-formula">{zh ? "助手根据任务和模型证据制定配平策略，再结合每条候选的不确定性计算实际影响。模型预测值不会被助手改写。" : "The Assistant sets a policy from your goal and model evidence. Each candidate’s measured uncertainty determines the influence of its predictions. Prediction values stay unchanged."}</p>
+                  <label className="field">{zh ? "查看候选" : "Inspect candidate"}
+                    <select aria-label="Inspect candidate evidence" disabled={!evidenceRows.length} value={evidenceCandidate?.mutation ?? ""} onChange={e=>setEvidencePicked(e.target.value)}>
+                      {!evidenceRows.length && <option value="">{zh ? "评分后可用" : "Available after scoring"}</option>}
+                      {evidenceRows.map(c=><option key={c.mutation} value={c.mutation}>{c.mutation}</option>)}
+                    </select>
+                  </label>
+                  {evidenceError && <p role="alert">{evidenceError}</p>}
+                  {scorers.map(m => {
+                    const term = evidence?.models.find(t=>t.key===m.key);
+                    const uncertaintyKey = m.key==='activity' ? 'activity_sigma_log10' : m.key==='ph' ? 'ph_uncertainty' : 'stability_uncertainty';
+                    return <div className="candidate-evidence-row" key={m.key} style={{'--evidence-color':m.color} as React.CSSProperties}>
+                      <strong>{m.name}</strong>
+                      <div className="candidate-evidence-values">
+                        <span>{zh ? "预测" : "Prediction"}<b>{number(evidenceCandidate?.[m.field])}</b></span>
+                        <span>{zh ? "不确定性" : "Uncertainty"}<b>{number(evidenceCandidate?.[uncertaintyKey])}</b></span>
+                        <span>{zh ? "影响系数" : "Influence"}<b>{number(term?.influence)}</b></span>
                       </div>
-                      <div className="balance-inputs">
-                        <label>
-                          {zh ? "偏好权重" : "Preference"}
-                          <input
-                            aria-label={`${m.name} preference`}
-                            type="number"
-                            min={0}
-                            step={0.05}
-                            disabled={busy || (active && phase > 2)}
-                            value={weights[m.key]}
-                            onChange={(e) =>
-                              setSelection({
-                                ...selection,
-                                weights: {
-                                  ...weights,
-                                  [m.key]: Number(e.target.value),
-                                },
-                              })
-                            }
-                          />
-                        </label>
-                        <label>
-                          {zh ? "可信度" : "Confidence"}{" "}
-                          <span>{Math.round(confidence[m.key] * 100)}%</span>
-                          <input
-                            aria-label={`${m.name} confidence`}
-                            type="range"
-                            min={0}
-                            max={1}
-                            step={0.01}
-                            disabled={busy || (active && phase > 2)}
-                            value={confidence[m.key]}
-                            style={
-                              {
-                                "--range-fill": `${confidence[m.key] * 100}%`,
-                                "--range-color": m.color,
-                              } as React.CSSProperties
-                            }
-                            onChange={(e) =>
-                              setSelection({
-                                ...selection,
-                                confidence: {
-                                  ...confidence,
-                                  [m.key]: Number(e.target.value),
-                                },
-                              })
-                            }
-                          />
-                        </label>
-                      </div>
-                    </div>
-                  ))}
+                      {term && <div className="candidate-influence-track"><span style={{width:`${term.influence*100}%`}} /></div>}
+                    </div>;
+                  })}
+                  {evidence && <p className="candidate-evidence-total">{zh ? "综合分" : "Composite score"} <strong>{number(evidence.score)}</strong><br/><small>{zh ? "不确定性对应的中性基线贡献" : "Neutral baseline from uncertainty"}: {number(evidence.neutral)}</small></p>}
+                  {evidenceCandidate && !evidence && !evidenceError && <p>{zh ? "该记录没有冻结参考评分依据；不推测候选级置信度。" : "This record has no frozen-reference evidence. Candidate confidence is not inferred."}</p>}
+                  {run.balanceDecision && <details className="candidate-policy-decision"><summary>{zh ? "查看助手的策略依据" : "Assistant policy decision"}</summary><p>{run.balanceDecision}</p></details>}
                   <div className="threshold-fields">
                     <label className="field">
                       {zh ? "目标 pH（可选）" : "Target pH (optional)"}
@@ -880,6 +794,7 @@ export function Workbench() {
                               e.target.value === ""
                                 ? null
                                 : Number(e.target.value),
+                            weights: defaultSelection(e.target.value === "" ? null : Number(e.target.value)).weights,
                             ph_tolerance: e.target.value === "" ? null : 1,
                           })
                         }
@@ -908,16 +823,10 @@ export function Workbench() {
                   </div>
                   <p className="small dim">
                     {zh
-                      ? "可信度为配平系数，不是校准概率。目标与阈值仅在启动前设置。"
-                      : "Confidence adjusts influence, not a probability. Set targets before screening."}
+                      ? "不确定性按各模型尺度处理；影响系数不是概率。目标与阈值仅在启动前设置。"
+                      : "Uncertainty sources use different scales. Influence is a scoring coefficient, not a probability. Set targets before screening."}
                   </p>
                 </div>
-                <button
-                  disabled={busy || balanceLocked}
-                  onClick={() => void perform(applyBalance)}
-                >
-                  {zh ? "应用配平" : "Apply balance"} ↗
-                </button>
               </div>
             </div>
             <div className="section-bottom">
