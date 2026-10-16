@@ -100,6 +100,7 @@ export function useRun(jobId: string | null) {
               report: { language: run.config_summary!.report_language },
               runtime: { phase_control: true },
             };
+        if (run.applied_selection) request.selection = run.applied_selection;
         setWtSequence(sequence);
         useApp.getState().setRunRequest(request);
         requestLoaded = Boolean(sequence);

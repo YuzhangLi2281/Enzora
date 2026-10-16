@@ -99,6 +99,7 @@ export interface RunMeta {
   stages: StageRecord[];
   run_dir: string;
   generation?: Record<string, unknown>;
+  applied_selection?: RunRequest['selection'];
   progress?: {
     phase: number;
     status: string;

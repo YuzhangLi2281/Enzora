@@ -65,6 +65,7 @@ class JobHandle:
     proc: subprocess.Popen | None = None
     backend: str = "local"
     slurm_id: str | None = None
+    slurm_submission_started: bool = False
     scheduler_state: str | None = None
     returncode: int | None = None
     status: str = "queued"
@@ -246,6 +247,8 @@ class JobManager:
     def _cleanup_stopped_job(self, handle: JobHandle) -> None:
         if handle.config['runtime']['keep_temp']:
             return
+        if handle.backend == 'slurm' and handle.slurm_submission_started and not handle.slurm_id:
+            raise RuntimeError('Cache retained: interrupted submission has no confirmed allocation ID')
         if handle.backend == 'slurm' and handle.slurm_id:
             # scancel acknowledgement alone does not mean model writers have exited.
             for attempt in range(30):
@@ -322,7 +325,7 @@ class JobManager:
         emitted_stages: set[int] = {stage["index"] for stage in handle.stages}
         log_offsets: dict[str, int] = {}
         last_progress = {}
-        stage_started: float | None = handle.started_at
+        stage_started: float | None = handle.stages[-1]['finished_at'] if handle.stages else handle.started_at
         current_stage_index = max(emitted_stages, default=-1) + 1
 
         def scan_once() -> None:
@@ -564,6 +567,7 @@ class JobManager:
             "force_cpu": handle.force_cpu,
             "backend": handle.backend,
             "slurm_id": handle.slurm_id,
+            "slurm_submission_started": handle.slurm_submission_started,
             "scheduler_state": handle.scheduler_state,
             "returncode": handle.returncode,
             "config_summary": {
@@ -689,6 +693,8 @@ class JobManager:
         if cfg.get("constraint"):
             argv += ["--constraint", cfg["constraint"]]
         script = "#!/bin/bash\nset -euo pipefail\n" + "\n".join(cfg.get("setup_commands", [])) + "\nexec " + shlex.join(cmd) + "\n"
+        handle.slurm_submission_started = True
+        self._write_meta(handle)
         response = self._slurm_command(argv, input=script, env=env)
         identifier = response.stdout.strip().split(";", 1)[0]
         if not re.fullmatch(r"[1-9][0-9]*", identifier):
@@ -744,19 +750,39 @@ class JobManager:
     def _resume_slurm_jobs(self) -> None:
         if self.execution["backend"] != "slurm":
             return
-        for meta_path in sorted(self.jobs_dir.glob("*/meta.json")):
-            meta = json.loads(meta_path.read_text(encoding="utf-8"))
-            if meta.get("backend") != "slurm" or meta.get("status") not in {"queued", "running"} or not meta.get("slurm_id"):
+        records = [(path, json.loads(path.read_text(encoding='utf-8')))
+                   for path in self.jobs_dir.glob('*/meta.json')]
+        for meta_path, meta in sorted(records, key=lambda row: row[1]['created_at']):
+            if meta.get("backend") != "slurm" or meta.get("status") not in {"queued", "running"}:
                 continue
-            identifier = str(meta["slurm_id"])
-            if not re.fullmatch(r"[1-9][0-9]*", identifier):
+            identifier = str(meta['slurm_id']) if meta.get('slurm_id') else None
+            if identifier is not None and not re.fullmatch(r"[1-9][0-9]*", identifier):
                 raise ValueError("Persisted Slurm allocation ID is invalid")
             job_dir = meta_path.parent
             config = yaml.safe_load((job_dir / "request.yaml").read_text(encoding="utf-8"))
             handle = JobHandle(id=meta["id"], job_dir=job_dir, run_dir=job_dir / "outputs", config=config,
                                force_cpu=meta["force_cpu"], backend="slurm", slurm_id=identifier,
+                               slurm_submission_started=meta.get('slurm_submission_started', False),
                                scheduler_state=meta.get("scheduler_state"), status=meta["status"],
                                created_at=meta["created_at"], started_at=meta.get("started_at"), stages=meta.get("stages", []))
+            if identifier is None:
+                if handle.slurm_submission_started:
+                    # Do not submit twice when the API exits after sbatch accepted a job.
+                    response = self._slurm_command(['squeue', '--me', '--noheader', '--name',
+                        f'enzora-{handle.id}', '--format=%A'])
+                    matches = response.stdout.split()
+                    if len(matches) != 1 or not re.fullmatch(r'[1-9][0-9]*', matches[0]):
+                        handle.status = 'failed'
+                        handle.error = 'Interrupted submission requires scheduler review; no automatic resubmission or cache deletion'
+                        handle.finished_at = time.time()
+                        self._write_meta(handle)
+                        continue
+                    handle.slurm_id = matches[0]
+                    self._write_meta(handle)
+                else:
+                    self._jobs[handle.id] = handle
+                    self._queue.append(handle)
+                    continue
             slot = self._cpu_slots if handle.force_cpu else self._gpu_slots
             if not slot.acquire(blocking=False):
                 raise RuntimeError("Existing Slurm allocations exceed configured execution slots")
