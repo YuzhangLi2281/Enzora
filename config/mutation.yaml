@@ -1,0 +1,42 @@
+input:
+  sequence_path: ../src/Enzora_Software_Cache/inputs/enzyme.txt
+  structure:
+    directory: ../src/Enzora_Software_Cache/inputs
+    pattern: enzyme.cif
+    path: null
+    chain_id: A
+models:
+  protein_dpo:
+    base_weights_path: ../model_weights/enzora_mutation/protein-dpo/esm_if1_gvp4_t16_142M_UR50.pt
+    weights_path: ../model_weights/enzora_mutation/protein-dpo/paired_weights.pt
+  enzgfm:
+    repository_path: ../src/Enzora_Mutation/EnzGFM
+    tokenizer_path: ../src/Enzora_Mutation/EnzGFM/EsmTokenizer
+    weights_path: ../model_weights/enzora_mutation/EnzGFM-150M
+  vesm3:
+    base_model: esm3_sm_open_v1
+    weights_path: ../model_weights/enzora_mutation/VESM3.pth
+    require_exact_checkpoint: true
+    base_weights_path: ../model_weights/enzora_mutation/esm3/esm3_sm_open_v1.pth
+mutation_space:
+  scope: full_sequence
+  plddt_threshold: 70.0
+  positions:
+    include: null
+    exclude: []
+library:
+  counts:
+    1: 1000
+  random_seed: 20260828
+  top_fraction: 0.25
+  sampling_temperature: 1.0
+  max_attempt_factor: 100
+runtime:
+  device: cuda:0
+  allow_cpu_fallback: false
+output:
+  directory: ../src/Enzora_Software_Cache/runs/mutation
+  fasta: vesm_enzyme_mutate_database.fasta
+  single_mutation_scores: single_mutation_scores.csv
+  library_manifest: library_manifest.csv
+  intermediate_arrays: model_logits_llrs_and_calibrated_scores.npz

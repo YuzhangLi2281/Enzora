@@ -1,0 +1,20 @@
+# Build from the Enzora root so licensed shared font assets are included.
+FROM docker.io/library/node:22-alpine AS build
+WORKDIR /app/src/Enzora_Software_Webs/web
+COPY src/Enzora_Software_Webs/web/package.json src/Enzora_Software_Webs/web/package-lock.json ./
+RUN npm ci
+COPY src/Enzora_Software_Webs/web/ .
+COPY resource/fonts/ /app/resource/fonts/
+COPY resource/models/ /app/resource/models/
+COPY resource/docs/anewomni-protein.svg /app/resource/docs/anewomni-protein.svg
+RUN npm test && npm run build
+
+FROM docker.io/library/nginx:stable-alpine
+ENV ENZYME_LISTEN=127.0.0.1:8080 \
+    ENZYME_API_UPSTREAM=127.0.0.1:8000 \
+    NGINX_ENVSUBST_FILTER=^ENZYME_
+COPY src/Enzora_Software_Webs/web/deploy/podman/default.conf.template /etc/nginx/templates/default.conf.template
+COPY src/Enzora_Software_Webs/web/deploy/podman/config.js /etc/enzyme-web/config.js
+COPY --from=build /app/src/Enzora_Software_Webs/web/dist /usr/share/nginx/html
+EXPOSE 8080
+CMD ["nginx", "-g", "daemon off;"]

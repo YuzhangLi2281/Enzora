@@ -1,0 +1,74 @@
+sequence_name: my_enzyme
+sequence: MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+user_request: null
+output_dir: ../src/Enzora_Software_Cache/runs/cli
+candidate:
+  top_k: 1000
+  allowed_positions: null
+  excluded_positions: []
+models:
+  ephod:
+    repo: ../src/Enzora_Screening/EpHod
+    python: python3
+    weights_dir: ../model_weights/enzora_screen/EpHod
+  phenom:
+    repo: ../src/Enzora_Screening/PheNom
+    python: python3
+    model_dir: ../model_weights/enzora_screen/PheNom
+    esmc_model_dir: ../model_weights/enzora_screen/ESMC
+    molt5_model_dir: ../model_weights/enzora_screen/MolT5
+  unistab:
+    repo: ../src/Enzora_Screening/UniStab
+    python: python3
+    checkpoint: ../model_weights/enzora_screen/UniStab/model.ckpt
+    weights_dir: ../model_weights/enzora_screen/UniStab
+selection:
+  # Set to a frozen, validated WT-reference policy to use server-matched scoring.
+  score_policy: null
+  target_ph: 7.5
+  ph_tolerance: 1.0
+  stability_direction: lower_is_better
+  stability_operator: none
+  stability_threshold: null
+  weights:
+    ph: 0.3
+    activity: 0.4
+    stability: 0.3
+  top_k: 5
+  min_activity_log10: null
+  confidence:
+    ph: 1.0
+    activity: 1.0
+    stability: 1.0
+llm:
+  enabled: false
+  base_url: https://generativelanguage.googleapis.com/v1beta
+  parameter_parsing: true
+  result_analysis: true
+  parameter_model: gemini-2.5-flash
+  analysis_model: gemini-2.5-pro
+  max_tokens: 4000
+  analysis_top_n: 20
+  analysis_fail_open: true
+visualization:
+  enabled: true
+  umap: true
+runtime:
+  gpu_id: 0
+  timeout_seconds: 7200
+  keep_temp: true
+  cache_dir: ../src/Enzora_Software_Cache/models
+  phase_control: false
+report:
+  language: zh
+mutation:
+  config: mutation.yaml
+  python: python3
+  structure_path: ../src/Enzora_Software_Cache/inputs/enzyme.cif
+  chain_id: A
+  counts:
+    1: 1000
+  random_seed: 20260828
+activity:
+  task: kcat
+  ligand_smiles: CCO

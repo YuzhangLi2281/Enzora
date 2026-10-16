@@ -1,0 +1,12 @@
+node_modules/
+dist/
+*.local
+.env
+.env.*
+!.env.example
+
+# 编译缓存、测试产物和系统临时文件
+*.tsbuildinfo
+coverage/
+*.log
+.DS_Store

@@ -1,0 +1,18 @@
+[Unit]
+Description=iGEM enzyme frontend
+
+[Container]
+Image=localhost/enzyme-web:v1
+ContainerName=enzyme-web
+Network=host
+Environment=ENZYME_LISTEN=127.0.0.1:8080
+Environment=ENZYME_API_UPSTREAM=127.0.0.1:8000
+Volume=%h/enzyme-deploy/config:/etc/enzyme-web:ro,Z
+
+[Service]
+Restart=always
+RestartSec=5
+TimeoutStartSec=120
+
+[Install]
+WantedBy=default.target

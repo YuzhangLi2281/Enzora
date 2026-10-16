@@ -1,0 +1,15 @@
+# Optional host service. Adjust BOTH paths to your existing repo and venv.
+# Do not install a second service if the backend is already supervised.
+[Unit]
+Description=iGEM enzyme API in the existing host venv
+
+[Service]
+Type=simple
+WorkingDirectory=%h/apps/enzyme-agent/server
+ExecStart=%h/apps/enzyme-agent/.venv/bin/python run.py --host 127.0.0.1 --port 8000
+Environment=PYTHONUNBUFFERED=1
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

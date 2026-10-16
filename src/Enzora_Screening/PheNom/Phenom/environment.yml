@@ -1,0 +1,34 @@
+name: phenome
+channels:
+  - pytorch  # Highest priority for pytorch and related packages
+  - nvidia
+  - conda-forge
+  - defaults
+  - pyg
+dependencies:
+  - python=3.10
+  - pytorch
+  - torchvision
+  - torchaudio
+  - pytorch-cuda=11.8
+  - pyg::pyg
+  - pip
+  - pip:
+    - rdkit
+    - scipy
+    - scikit-learn
+    - biopython
+    - pandas
+    - biopandas
+    - timeout_decorator
+    - py3Dmol
+    - umap-learn
+    - plotly
+    - mplcursors
+    - lifelines
+    - reprint
+    - fair-esm
+    - transformers
+    - mamba-ssm
+    - causal-conv1d
+    - chembl_structure_pipeline

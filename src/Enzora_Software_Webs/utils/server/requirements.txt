@@ -1,0 +1,14 @@
+# Web backend (server/) dependencies. Run on the GPU server.
+# The scientific package (fixed-enzyme-agent) is installed separately
+# from the repository root: pip install -e ".[dev]"
+fastapi>=0.110,<1
+uvicorn[standard]>=0.29
+httpx>=0.27
+pandas>=2.0,<3
+numpy>=1.24,<3
+biopython>=1.83,<2
+python-dotenv>=1.0,<2
+
+PyYAML>=6,<7
+matplotlib>=3.8
+umap-learn>=0.5

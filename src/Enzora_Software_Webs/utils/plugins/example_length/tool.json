@@ -1,0 +1,8 @@
+{
+  "name": "sequence_length",
+  "version": "1.0.0",
+  "description": "Example tool that measures protein sequence length",
+  "capabilities": ["sequence_measurement"],
+  "inputs": ["protein_sequence"],
+  "outputs": ["sequence_length"]
+}

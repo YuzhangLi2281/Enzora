@@ -1,0 +1,87 @@
+{
+  "project": "Enzora",
+  "recorded_on": "2026-10-14",
+  "purpose": "Persistent verification notes for the next web/server release; this file is not runtime configuration.",
+  "verification": {
+    "job_id": "c49db34528bd",
+    "source": "Read-only queries through the existing localhost:8000 API connection and user-supplied GPU diagnostics",
+    "status": "success",
+    "elapsed_seconds": 993.63,
+    "protein_length": 260,
+    "optimization_rounds": 2,
+    "candidate_pool_size": 96,
+    "selected_count": 10,
+    "gpu": "NVIDIA GeForce RTX 3090",
+    "cuda_checks": "EpHod, PHENOM and UniStab environments all reported CUDA available",
+    "mamba_fast_kernels": true,
+    "user_confirmation": "Calculation was correct; runtime was simply longer than expected.",
+    "source_code_changes_made_in_this_check": false
+  },
+  "next_release_priorities": [
+    {
+      "area": "Progress and runtime explanation",
+      "status": "pending",
+      "notes": [
+        "The checked task completed in about 16 minutes 34 seconds. This is one observed run, not a general runtime promise.",
+        "Checkpoint shard loading at 100 percent only means weight loading finished, not that inference or the whole job finished.",
+        "Show the active model, round, elapsed time and last observed activity. Lack of a log update alone must not be treated as a failure.",
+        "The completed engine result contains two iterative_round stages, while the adapter still exposes a fixed eleven-stage timeline. Audit nested round/parent artifact detection and terminal progress reconciliation.",
+        "User requested that runtime slowness not be misdiagnosed as incorrect GPU configuration."
+      ]
+    },
+    {
+      "area": "Localized report download",
+      "status": "pending",
+      "notes": [
+        "For the verified English run, /files/report_en.md returned HTTP 200, while /files/report.md returned HTTP 404.",
+        "Use the actual report artifact from result.markdown_report through a safe relative API path instead of always requesting report.md.",
+        "Audit the report completion marker as well as the frontend download button."
+      ]
+    },
+    {
+      "area": "Multi-round candidate identity",
+      "status": "needs_review",
+      "notes": [
+        "The selected results include identical final mutation labels for different parents, for example A65S with Q53P+A65S and H36K+A65S lineages.",
+        "Audit candidate keys, selected-result merging, selection state, exports and sequence highlighting. A final mutation label alone may not uniquely identify a multi-round candidate."
+      ]
+    },
+    {
+      "area": "HTTP error diagnosis",
+      "status": "unresolved_without_failed_request",
+      "notes": [
+        "The previously reported generic HTTP 500 was not reproduced during verification. Task metadata, candidates with page_size=500, analysis text, tools, settings, hosts, session status and resolved request returned HTTP 200.",
+        "Record the exact failing request URL, method, response and backend traceback before associating a future HTTP 500 with model or CUDA configuration."
+      ]
+    }
+  ],
+  "additional_verifications": [
+    {
+      "recorded_on": "2026-10-15",
+      "job_id": "405250bed757",
+      "status": "cancelled",
+      "error": "cancelled by user",
+      "elapsed_seconds_before_cancellation": 2428.85,
+      "protein_length": 544,
+      "internal_candidate_pool": 32,
+      "final_requested_candidates": 3,
+      "verified_completed_work": [
+        "Round 1 PHENOM scan CSV exists.",
+        "Round 1 EpHod log reports 33/33 predictions completed.",
+        "Round 1 UniStab log reports 32 mutations processed and results saved.",
+        "Round 2 PHENOM scan CSVs exist for all three parent sequences; each contains 10336 mutation rows."
+      ],
+      "round_2_unistab_input_count": 96,
+      "round_2_unistab_input_written_at_utc": "2026-10-14 16:49:50 UTC",
+      "round_2_unistab_completion": "Neither unistab.log nor output/agent_results.npz was available through the artifact API after cancellation.",
+      "conclusion": "Evidence points to waiting for second-round UniStab processing when cancelled, rather than remaining in initial mutation generation. No model crash was established.",
+      "next_release_notes": [
+        "Explain that final selection.top_k does not reduce internal candidate.top_k or the number of iterative parent evaluations.",
+        "Expose internal candidate pool size and optimization rounds as separate, explicit workload controls if authorized in the next release.",
+        "Progress must recognize round_XX/parent_XX artifacts and round_XX/unistab batching; do not infer the active model solely from the old flat eleven-stage marker list.",
+        "Long-run decisions should use current process/GPU activity and live model progress when available; do not classify missing buffered logs as a crash."
+      ],
+      "runtime_or_model_code_changed": false
+    }
+  ]
+}

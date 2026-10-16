@@ -1,0 +1,11 @@
+**/node_modules/
+**/dist/
+**/__pycache__/
+**/.env*
+*.log
+*.tsbuildinfo
+model_weights/
+src/Enzora_Software_Cache/
+*.pt
+*.pth
+*.ckpt

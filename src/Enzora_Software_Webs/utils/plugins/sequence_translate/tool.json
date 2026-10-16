@@ -1,0 +1,8 @@
+{
+  "name": "sequence_translate",
+  "version": "1.0.0",
+  "description": "Translate a DNA/mRNA sequence to protein with the standard genetic code (offline, deterministic)",
+  "capabilities": ["sequence_translation"],
+  "inputs": ["nucleotide_sequence", "sequence_type"],
+  "outputs": ["protein_sequence", "translation_metadata"]
+}

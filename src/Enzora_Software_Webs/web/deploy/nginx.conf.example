@@ -1,0 +1,38 @@
+# Frontend-only deployment example. Replace root, server_name and API upstream.
+# Add your existing TLS configuration before exposing this site publicly.
+server {
+    listen 80;
+    server_name enzora.example.edu;
+    root /srv/enzora/web/dist;
+    index index.html;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 3600s;
+    }
+
+    location = /config.js {
+        add_header Cache-Control "no-store";
+        try_files $uri =404;
+    }
+
+    location = /index.html {
+        add_header Cache-Control "no-cache";
+    }
+
+    location /assets/ {
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        try_files $uri =404;
+    }
+
+    # React Router history URLs must fall back to the frontend entry point.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

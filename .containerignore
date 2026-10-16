@@ -1,0 +1,14 @@
+**/node_modules
+**/dist
+**/.git
+**/.env
+**/.env.*
+**/*.local
+**/*.tsbuildinfo
+**/*.log
+**/coverage
+model_weights
+src/Enzora_Software_Cache
+src/Enzora_Screening
+src/Enzora_Mutation
+src/Enzora_Agent
