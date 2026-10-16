@@ -4520,7 +4520,7 @@ body,
 .top-results .input-heading select {width:auto;max-width:130px;font:inherit;font-size:12px;}
 @media (prefers-reduced-motion:reduce) {.llr-density {transition:none;}}
 
-.copilot.expanded {display:flex;flex-direction:column;min-width:min(300px,calc(100vw - 16px));min-height:300px;}
+.copilot.expanded {display:flex;flex-direction:column;min-width:min(300px,calc(100vw - 16px));min-height:min(300px,calc(100dvh - 88px));}
 .copilot.expanded .copilot-content {flex:1;min-height:0;max-height:none;}
 .copilot.expanded .copilot-handle {flex:none;}
 .assistant-resize {position:absolute;right:0;bottom:0;width:24px;height:24px;padding:2px;border:0;background:transparent;cursor:nwse-resize;touch-action:none;color:var(--text-dim);z-index:3;}
@@ -4619,3 +4619,29 @@ body,
 .atlas-feature {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;padding:12px 0;border-bottom:1px solid var(--border);}
 .atlas-feature > p {grid-column:1 / -1;margin:0;font-size:12px;line-height:1.65;color:var(--text-dim);}
 .atlas-feature > span {color:#6b5790;font-variant-numeric:tabular-nums;}
+
+:root[data-theme="macaron"] .copilot-messages {color:var(--text);}
+.copilot .atlas-record-card :is(dt,dd,summary,a,strong) {font-weight:700;}
+.copilot .atlas-record-card summary {cursor:pointer;}
+
+/* Keep evidence summaries and the balancing flow visible together on desktop. */
+@media(min-width:1001px) {
+  .screening-composition > .scorer-stack {grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:max-content;align-content:start;gap:12px;}
+  .screening-composition .scorer-row {grid-template-columns:minmax(0,1fr) auto;gap:6px;padding:14px 12px;background:var(--bg-panel);border:1px solid var(--border);border-radius:14px;}
+  .screening-composition .scorer-name h3 {font-size:18px;letter-spacing:-.02em;}
+  .screening-composition .scorer-name > span {font-size:10px;}
+  .screening-composition .scorer-state {margin-top:3px;}
+  .screening-composition .scorer-summary {grid-column:2;grid-row:1;}
+  .screening-composition .scorer-summary strong {font-size:21px;}
+  .screening-composition .scorer-summary span {font-size:9px;max-width:64px;}
+  .screening-composition .score-distribution {grid-column:1 / -1;grid-row:2;height:65px;}
+  .screening-composition .distribution-empty {font-size:22px;}
+  .screening-composition .distribution-tick {font-size:17px;}
+  .screening-composition .scoring-waterfall,.screening-composition .phenom-model-details,.screening-composition .agent-decision {grid-column:1 / -1;}
+  .screening-composition .scoring-waterfall svg {max-height:210px;}
+}
+.score-distribution .distribution-grid {stroke:none;}
+:root[data-theme="deep-space"] .acknowledgment-track > a {background:#ffffff09;color:#e9f4fb;}
+:root[data-theme="deep-space"] .acknowledgment-track :is(p,h3),:root[data-theme="deep-space"] .teams-acknowledgment > div:first-child p {color:#b7cada;}
+
+.scoring-waterfall svg text {font-size:13px;}

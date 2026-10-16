@@ -61,7 +61,8 @@ export function ChatPanel({
     setFailedMessage("");
   }, [jobId]);
   useLayoutEffect(() => {
-    const clamp = () =>
+    const clamp = () => {
+      setSize(s=>s?{width:Math.min(s.width,innerWidth-16),height:Math.min(s.height,innerHeight-88)}:s);
       setPosition((p) =>
         p
           ? {
@@ -76,6 +77,7 @@ export function ChatPanel({
             }
           : p,
       );
+    };
     clamp();
     window.addEventListener("resize", clamp);
     return () => window.removeEventListener("resize", clamp);
@@ -489,11 +491,11 @@ export function ChatPanel({
           if(!delta[event.key])return;event.preventDefault();
           const box=panel.current!.getBoundingClientRect();
           setPosition({x:box.left,y:box.top});
-          setSize({width:Math.max(300,Math.min(innerWidth-box.left-8,box.width+delta[event.key][0])),height:Math.max(300,Math.min(innerHeight-box.top-8,box.height+delta[event.key][1]))});
+          setSize({width:Math.max(300,Math.min(innerWidth-box.left-8,box.width+delta[event.key][0])),height:Math.max(Math.min(300,innerHeight-88),Math.min(innerHeight-box.top-8,box.height+delta[event.key][1]))});
         }}
         onPointerDown={event=>{const box=panel.current!.getBoundingClientRect();setPosition({x:box.left,y:box.top});resizing.current={x:event.clientX,y:event.clientY,width:box.width,height:box.height};event.currentTarget.setPointerCapture(event.pointerId);}}
         onPointerMove={event=>{const r=resizing.current;if(!r)return;const box=panel.current!.getBoundingClientRect();
-          setSize({width:Math.max(Math.min(300,innerWidth-16),Math.min(innerWidth-box.left-8,r.width+event.clientX-r.x)),height:Math.max(300,Math.min(innerHeight-box.top-8,r.height+event.clientY-r.y))});}}
+          setSize({width:Math.max(Math.min(300,innerWidth-16),Math.min(innerWidth-box.left-8,r.width+event.clientX-r.x)),height:Math.max(Math.min(300,innerHeight-88),Math.min(innerHeight-box.top-8,r.height+event.clientY-r.y))});}}
         onPointerUp={()=>{resizing.current=null;}} onPointerCancel={()=>{resizing.current=null;}}><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 15l9-9M11 15l4-4" stroke="currentColor" strokeWidth="2"/></svg></button>}
     </aside>
   );

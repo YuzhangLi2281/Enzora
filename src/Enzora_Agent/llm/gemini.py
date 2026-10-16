@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import http.client
 import os
 import re
 import time
@@ -103,7 +104,7 @@ class MiniMaxClient:
             except urllib.error.HTTPError as exc:
                 if exc.code not in {429, 500, 502, 503, 504} or attempt == 2:
                     raise RuntimeError(f'MiniMax HTTP {exc.code}') from None
-            except (urllib.error.URLError, TimeoutError):
+            except (urllib.error.URLError, OSError, http.client.HTTPException):
                 if attempt == 2:
                     raise RuntimeError('MiniMax network request failed after three attempts') from None
             except ValueError:

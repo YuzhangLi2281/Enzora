@@ -868,7 +868,7 @@ export function ScoringWaterfall({ rows, weights, confidence, zh, active }: {
   const values=rows.filter(c=>[c.activity_component,c.ph_component,c.stability_component].every(v=>typeof v==='number'&&Number.isFinite(v)));
   const samples=values.filter((_,i)=>i%Math.max(1,Math.ceil(values.length/36))===0).map(c=>({mutation:c.mutation,
     parts:models.map((m,i)=>shares[i]*Number(c[`${m.key}_component`]))}));
-  const fingerprint=JSON.stringify([shares,values.length,values[0]?.activity_component,values[values.length-1]?.ph_component]);
+  const fingerprint=JSON.stringify([shares,samples]);
   const [progress,setProgress]=useState(1);
   useEffect(()=>{
     if(!active || !values.length) return;
@@ -880,28 +880,28 @@ export function ScoringWaterfall({ rows, weights, confidence, zh, active }: {
     return ()=>cancelAnimationFrame(request);
   },[fingerprint,active]);
   const p=Math.max(0,Math.min(1,(progress*5000-600)/3600));
-  const y=(i:number)=>80+i/Math.max(1,samples.length-1)*200;
+  const y=(i:number)=>75+i/Math.max(1,samples.length-1)*110;
   const leading=samples[Math.min(samples.length-1,Math.floor(p*samples.length))];
   const mean=values.length?values.reduce((sum,c)=>sum+models.reduce((n,m,i)=>n+shares[i]*Number(c[`${m.key}_component`]),0),0)/values.length:null;
   return <div className="scoring-waterfall" data-replay={progress<1}>
     <div className="waterfall-heading"><strong>{zh?'置信度配平 → 综合得分':'Confidence balance → composite score'}</strong><span>{values.length?`${values.length} ${zh?'条真实预测':'scored candidates'}`:zh?'等待评分分量':'Awaiting score components'}</span></div>
-    <svg viewBox="0 0 520 320" role="img" aria-label={zh?'偏好乘可信度归一化后的加权贡献':'Weighted contributions after normalizing preference times confidence'}>
-      <defs><clipPath id={`${id}-reveal`}><rect x="0" y="76" width="520" height={p*210}/></clipPath></defs>
+    <svg viewBox="0 0 520 240" role="img" aria-label={zh?'偏好乘可信度归一化后的加权贡献':'Weighted contributions after normalizing preference times confidence'}>
+      <defs><clipPath id={`${id}-reveal`}><rect x="0" y="70" width="520" height={p*125}/></clipPath></defs>
       {models.map((m,i)=><g key={m.key}>
         <text x={65+i*190} y="18" textAnchor="middle">{m.name}</text>
         <text x={65+i*190} y="38" textAnchor="middle" fill={m.color}>{(shares[i]*100).toFixed(1)}%</text>
-        <path d={`M${65+i*190},47 C${65+i*190},66 ${42+shares.slice(0,i).reduce((a,b)=>a+b,0)*430},58 ${42+shares.slice(0,i).reduce((a,b)=>a+b,0)*430},77`}
+        <path d={`M${65+i*190},47 C${65+i*190},66 ${42+shares.slice(0,i).reduce((a,b)=>a+b,0)*430},56 ${42+shares.slice(0,i).reduce((a,b)=>a+b,0)*430},67`}
           stroke={m.color} strokeWidth={shares[i]>0?3+shares[i]*12:1} strokeDasharray={shares[i]===0?'3 4':undefined} opacity={shares[i]===0?.3:.8} fill="none"/>
       </g>)}
-      {!samples.length ? <text x="260" y="170" textAnchor="middle">{zh?'真实评分到达后展示贡献曲线':'Contribution curves follow real predictions'}</text> : <g clipPath={`url(#${id}-reveal)`}>
+      {!samples.length ? <text x="260" y="130" textAnchor="middle">{zh?'真实评分到达后展示贡献曲线':'Contribution curves follow real predictions'}</text> : <g clipPath={`url(#${id}-reveal)`}>
         {models.map((m,i)=>{
           const upper=samples.map((s,j)=>`${42+s.parts.slice(0,i+1).reduce((a,b)=>a+b,0)*430},${y(j)}`);
           const lower=[...samples].reverse().map((s,j)=>`${42+s.parts.slice(0,i).reduce((a,b)=>a+b,0)*430},${y(samples.length-1-j)}`);
           return <path key={m.key} d={`M${upper.join(' L')} L${lower.join(' L')}Z`} fill={m.color} fillOpacity=".34" stroke={m.color} strokeWidth="1.5" strokeLinejoin="round"/>;
         })}
       </g>}
-      {leading && p>0 && <g><circle cx={42+leading.parts.reduce((a,b)=>a+b,0)*430} cy={80+p*200} r="4" fill="var(--text)"/><text x="478" y={Math.min(280,88+p*200)} textAnchor="end">Σ {leading.parts.reduce((a,b)=>a+b,0).toFixed(3)}</text></g>}
-      <text x="42" y="304">0</text><text x="257" y="304" textAnchor="middle">0.5</text><text x="472" y="304" textAnchor="end">1.0</text>
+      {leading && p>0 && <g><circle cx={42+leading.parts.reduce((a,b)=>a+b,0)*430} cy={75+p*110} r="4" fill="var(--text)"/><text x="478" y={Math.min(192,83+p*110)} textAnchor="end">Σ {leading.parts.reduce((a,b)=>a+b,0).toFixed(3)}</text></g>}
+      <text x="42" y="224">0</text><text x="257" y="224" textAnchor="middle">0.5</text><text x="472" y="224" textAnchor="end">1.0</text>
     </svg>
     <div className="waterfall-summary"><span>Σ Wᵢ = {denominator>0?'1.000':'—'}</span><span>{zh?'平均综合分':'Mean composite'} <strong>{mean?.toFixed(3)??'—'}</strong></span></div>
     <p>{zh?'由上至下为候选顺序；宽度为真实加权贡献。动画为数据回放，不表示计算速度。':'Top to bottom: candidate order. Width: measured weighted contribution. Animation replays data; it does not measure speed.'}</p>

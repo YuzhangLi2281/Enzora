@@ -62,6 +62,7 @@ export function Tools() {
     }
   });
   const foldReady=catalog.data?.some(t=>t.name==='esmfold2'&&t.health.available);
+  const contextRun=runs.data?.find(r=>r.id===job);
   return <>
     <main id="main-content" className="page-shell tools-workspace">
       <header className="tools-heading"><div><h1>Models & Tools</h1><p>{zh?'导入序列，调用工具，检查并导出结果。':'Import a sequence, run a tool, inspect and export its result.'}</p></div><Link to="/workbench">{zh?'打开酶设计工作区':'Open enzyme workspace'} ↗</Link></header>
@@ -107,6 +108,6 @@ export function Tools() {
       </div>
       <details className="tools-model-catalog"><summary>{zh?'已配置模型与可用状态':'Configured models & availability'}</summary>{catalog.isError&&<ErrorNote text={catalog.error.message}/>}<div>{(catalog.data??[]).map(tool=><article key={tool.name}><strong>{tool.name}</strong><Badge kind={tool.health.available?'ok':'warn'}>{tool.health.available?(zh?'可用':'Ready'):(zh?'未配置':'Not configured')}</Badge><p>{tool.description}</p></article>)}</div></details>
     </main>
-    <ChatPanel jobId={job||null} sequence={type==='protein'?sequence:undefined} onChange={()=>void runs.refetch()} status={runs.data?.find(r=>r.id===job)?.status}/>
+    <ChatPanel jobId={job||null} sequence={type==='protein'?sequence:undefined} onChange={()=>void runs.refetch()} status={contextRun?.status} phase={contextRun?.status==='success'?3:contextRun?.progress?.phase??1}/>
   </>;
 }
