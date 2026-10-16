@@ -275,7 +275,7 @@ EpHod 使用两子模型分歧作为代理，UniStab 使用仅回归头的 3 次
 
 服务目录按 `releases/`（源码）、`config/`（私有运行配置）、`shared/weights/`（权重映射）、`shared/cache/`（跨任务缓存）、`runtime/`（服务环境）、`logs/`、`run/live/<job_id>/`（独立运行）分开。API Python 环境与科学模型环境隔离。模型解释器必须保留 conda 符号链接路径，不能通过 realpath 改变解释器所属环境。
 
-VESM3 先严格加载 ESM3 完整基础权重，再核对并覆盖末五层微调的精确 50 个键；它不是独立的 50 参数完整模型。残基注释 tokenizer CSV 也必须显式配置为服务器本地资源。EnzGFM 需要匹配的自定义模型源码和 tokenizer；Phenom 的蛋白缓存需要包含 `EsmcModel` 的匹配 ESMC 实现，不能直接换成同名官方接口。当前服务器复用了既有 PHENOM/VESM 的受控源码副本；这些外部源码与权重路径是部署依赖，不能假设本仓库已包含它们。UniStab 同样需要原配套 `vendor/fair_esm`、`vendor/openfold` 与 `vendor/dllogger`，适配器会核对这些依赖并为独立子进程设置搜索路径。
+VESM3 先严格加载 ESM3 完整基础权重，再核对并覆盖末五层微调的精确 50 个键；它不是独立的 50 参数完整模型。残基注释 tokenizer CSV 也必须显式配置为服务器本地资源。EnzGFM 需要匹配的自定义模型源码和 tokenizer；Phenom 的蛋白缓存需要包含 `EsmcModel` 的匹配 ESMC 实现，不能直接换成同名官方接口。当前服务器复用了既有 PHENOM/VESM 的受控源码副本；这些外部源码与权重路径是部署依赖，不能假设本仓库已包含它们。UniStab 同样需要原配套 `vendor/fair_esm`、`vendor/openfold` 与 `vendor/dllogger`，适配器会核对这些依赖并为独立子进程设置搜索路径。 主工作流与 API 使用独立环境；不要把模型环境的 `site-packages` 全局插入主流程 `PYTHONPATH`。例如 EpHod 的旧 scikit-learn 与 UMAP 的新依赖需要分别由各自解释器加载，避免路径污染导致后置阶段失败。
 
 命名隧道凭据与 API/Gemini 凭据仅保存在服务器私有配置，公开静态仓库只包含 API 域名。CPU API 服务与 GPU 推理分开申请 Slurm 资源。服务分配有时限；已配置的接续作业必须等前一服务结束后才启动，避免两个 API manager 同时写同一任务目录。GPU 作业在 API 接续后由持久化作业 ID 接管，不能重新提交冒充恢复。运维停止时须先取消待接续作业，再停止当前服务；固定域名和自动接续均不能保证集群停机期间可用。
 
