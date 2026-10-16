@@ -539,8 +539,8 @@ export function Workbench() {
                       </p>
                       <p className="small dim">
                         {zh
-                          ? "当前生成实现使用 ProteinDPO、EnzGFM 与 VESM3；酶活性由 PheNom 预测。"
-                          : "Generation uses ProteinDPO, EnzGFM and VESM3. PheNom predicts enzyme activity."}
+                          ? "当前生成实现使用 ProteinDPO、EnzGFM 与 VESM3；酶活性由 Phenom 预测。"
+                          : "Generation uses ProteinDPO, EnzGFM and VESM3. Phenom predicts enzyme activity."}
                       </p>
                     </>
                   )}
@@ -651,8 +651,8 @@ export function Workbench() {
                 </h2>
                 <p>
                   {zh
-                    ? "PheNom 活性、EpHod 最适 pH、UniStab 稳定性，按偏好与可信度共同排序。"
-                    : "Rank PheNom activity, EpHod optimal pH and UniStab stability by preference × confidence."}
+                    ? "Phenom 活性、EpHod 最适 pH、UniStab 稳定性，按偏好与可信度共同排序。"
+                    : "Rank Phenom activity, EpHod optimal pH and UniStab stability by preference × confidence."}
                 </p>
               </div>
               <button
@@ -932,7 +932,7 @@ export function Workbench() {
             <div className="section-bottom">
               <span>
                 {zh
-                  ? "PheNom 是唯一酶活性评分器"
+                  ? "Phenom 是唯一酶活性评分器"
                   : "Phenom is the sole activity predictor"}
               </span>
               <button

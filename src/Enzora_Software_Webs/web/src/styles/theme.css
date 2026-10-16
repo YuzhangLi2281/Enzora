@@ -940,16 +940,21 @@ button:hover:not(:disabled) {
 .screening-composition {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(330px, 0.85fr);
+  grid-template-rows: minmax(0, 1fr);
   gap: clamp(28px, 4vw, 60px);
   flex: 1;
   min-height: 0;
-  align-items: center;
+  align-items: stretch;
   padding: 20px 0 0;
 }
 .scorer-stack {
   min-width: 0;
+  min-height: 0;
   display: grid;
+  align-content: start;
   gap: 12px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 .scorer-row {
   display: grid;
@@ -4347,6 +4352,7 @@ body,
   white-space: nowrap;
 }
 .design-space {
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 12px;

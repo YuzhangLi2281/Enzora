@@ -15,7 +15,7 @@ const CAPABILITIES = [
 ];
 const TOOL_LABELS: Record<string, [string, string]> = {
   preview_candidate_preparation: ['准备突变与候选序列', 'Prepare mutations and candidate sequences'],
-  phenom: ['PHENOM · 活性预测', 'PHENOM · Activity prediction'],
+  phenom: ['Phenom · 活性预测', 'Phenom · Activity prediction'],
   ephod: ['EpHod · pH 预测', 'EpHod · pH prediction'],
   unistab: ['UniStab · 稳定性预测', 'UniStab · Stability prediction'],
   codon_optimizer: ['密码子优化', 'Codon optimization'],
