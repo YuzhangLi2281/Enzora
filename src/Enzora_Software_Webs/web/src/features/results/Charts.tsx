@@ -903,7 +903,7 @@ export function ScoringWaterfall({ rows, selection, zh, active }: {
     {invalid && <p role="alert">{zh ? "检测到超出 0–1 的评分分量，请检查原始输出。" : "A score component is outside 0–1. Check the source predictions."}</p>}
     <svg viewBox="0 0 520 350" role="img" aria-label={zh?'每条候选的模型证据与中性基线贡献':'Candidate-specific model evidence and neutral baseline contributions'}>
       <defs><clipPath id={`${id}-reveal`}><rect x="0" y="70" width="520" height={p*235}/></clipPath></defs>
-      {[...models,{key:'neutral',name:zh?'中性基线':'Neutral',color:'var(--border)'}].map((m,i)=><g key={m.key}>
+      {[...models,{key:'neutral',name:zh?'不确定性回退 → 0.5':'Uncertainty → 0.5',color:'var(--border)'}].map((m,i)=><g key={m.key}>
         <rect x={42+i*116} y="18" width="10" height="10" rx="2" fill={m.color}/>
         <text x={57+i*116} y="27">{m.name}</text>
       </g>)}
@@ -922,6 +922,6 @@ export function ScoringWaterfall({ rows, selection, zh, active }: {
       <text x="42" y="334">0</text><text x="257" y="334" textAnchor="middle">0.5</text><text x="472" y="334" textAnchor="end">1.0</text>
     </svg>
     <div className="waterfall-summary"><span>{zh?'逐候选证据':'Candidate-level evidence'}</span><span>{zh?'平均综合分':'Mean composite'} <strong>{mean?.toFixed(3)??'—'}</strong></span></div>
-    <p>{zh?'每一行是一条候选序列，色带越宽，表示该模型贡献的分数越多。动画回放已保存的预测数据。':'Each row is a candidate; colored segments show prediction evidence and grey shows the neutral baseline retained under uncertainty, on the fixed 0–1 scale. The animation replays saved predictions.'}</p>
+    <p>{zh?'每行是一条候选。彩色表示模型证据；灰色把不确定的预测拉回 0.5，避免过度奖励或惩罚，不是第四个模型。动画回放已保存的数据。':'Each row is a candidate; colored segments show model evidence. Grey pulls uncertain predictions towards 0.5, avoiding excessive rewards or penalties. It is not another model. The animation replays saved predictions.'}</p>
   </div>;
 }

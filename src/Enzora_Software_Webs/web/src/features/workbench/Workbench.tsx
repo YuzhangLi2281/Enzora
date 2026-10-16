@@ -774,7 +774,7 @@ export function Workbench() {
                       {term && <div className="candidate-influence-track"><span style={{width:`${term.influence*100}%`}} /></div>}
                     </div>;
                   })}
-                  {evidence && <p className="candidate-evidence-total">{zh ? "综合分" : "Composite score"} <strong>{number(evidence.score)}</strong><br/><small>{zh ? "不确定性对应的中性基线贡献" : "Neutral baseline from uncertainty"}: {number(evidence.neutral)}</small></p>}
+                  {evidence && <p className="candidate-evidence-total">{zh ? "综合分" : "Composite score"} <strong>{number(evidence.score)}</strong><br/><small>{zh ? "不确定性回退至 0.5 所保留的分数" : "Score retained by the uncertainty adjustment"}: {number(evidence.neutral)}</small></p>}
                   {evidenceCandidate && !evidence && !evidenceError && <p>{zh ? "该记录没有冻结参考评分依据；不推测候选级置信度。" : "This record has no frozen-reference evidence. Candidate confidence is not inferred."}</p>}
                   {run.balanceDecision && <details className="candidate-policy-decision"><summary>{zh ? "查看助手的策略依据" : "Assistant policy decision"}</summary><p>{run.balanceDecision}</p></details>}
                   <div className="threshold-fields">
