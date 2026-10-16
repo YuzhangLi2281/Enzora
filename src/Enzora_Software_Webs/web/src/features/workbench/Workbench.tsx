@@ -400,6 +400,7 @@ export function Workbench() {
             <div className="section-heading">
               <div>
                 <h1>Enzora</h1>
+                <h2 className="library-stage-title">{zh ? "酶突变库构建" : "Enzyme Mutation Database Construction"}</h2>
                 <p>
                   {zh
                     ? "输入起始酶序列和底物，设置要生成多少条突变序列。三个模型共同提出突变，建立下一步用于筛选的候选库。"
