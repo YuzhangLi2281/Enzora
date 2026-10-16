@@ -4646,3 +4646,31 @@ body,
 
 .scoring-waterfall svg text {font-size:13px;}
 .atlas-record-card :is(h4,button) {max-width:100%;overflow-wrap:anywhere;}
+
+/* Three deliberate screens: one wheel gesture advances one stage. */
+@media(min-width:1001px) {
+  .process-scroll {scroll-snap-type:y mandatory;scroll-behavior:smooth;}
+  .process-scroll[data-transition="true"] {scroll-snap-type:none;scroll-behavior:auto;}
+  .process-canvas > .process-section {scroll-snap-align:start;scroll-snap-stop:always;}
+}
+@media(max-width:1000px) {.process-scroll {scroll-snap-type:y proximity;}}
+:root[data-theme="macaron"] .process-scroll > .process-canvas {
+  background:radial-gradient(ellipse at 86% 14%,#d7eafc90,transparent 25%),radial-gradient(ellipse at 8% 48%,#d9eeeb80,transparent 22%),radial-gradient(ellipse at 81% 83%,#e6d9f4a0,transparent 25%),linear-gradient(180deg,#fdfefe 0%,#f6fbff 12%,#edf5ff 37%,#edf0fb 65%,#eee8f6 100%);
+}
+.process-canvas > .process-section > .stage-decoration-library {width:93%;height:100%;right:-12%;top:-2%;opacity:.19;mask-image:radial-gradient(ellipse at 65% 45%,#000 15%,transparent 73%);}
+.process-canvas > .process-section > .stage-decoration-screening {width:104%;height:104%;right:0;top:0;opacity:.14;mask-image:linear-gradient(120deg,#0008,#000 42%,transparent 90%);}
+.process-canvas > .process-section > .stage-decoration-output {width:100%;height:100%;right:-4%;top:0;opacity:.13;mask-image:radial-gradient(ellipse,#000 30%,transparent 78%);}
+.teams-asset-credits {margin:18px 0;color:var(--text-dim);font-size:12px;}
+.teams-asset-credits summary {cursor:pointer;}
+.teams-asset-credits p {max-width:740px;line-height:1.7;margin:12px 0;}
+.output-select {margin:2px 0 16px;}
+.assistant-action-progress {padding:16px;background:#8ac3c114;border:1px solid var(--border);border-radius:14px;}
+.assistant-action-progress > div {display:flex;justify-content:space-between;gap:12px;font-size:12px;}
+.assistant-action-progress > div > span {font-variant-numeric:tabular-nums;color:var(--text-dim);}
+.assistant-action-progress ol {list-style:none;padding:6px 0 0;margin:0;display:grid;gap:8px;}
+.assistant-action-progress li {display:flex;gap:9px;font-size:12px;color:var(--text-dim);}
+.assistant-action-progress li > span {width:14px;color:var(--accent2);font-size:16px;line-height:1.2;}
+.assistant-action-progress li:last-child {color:var(--text);}
+.assistant-action-progress li[data-complete="true"] > span {color:var(--ok);}
+.assistant-action-progress p {font-size:11px;margin:12px 0 0;line-height:1.6;color:var(--text-dim);}
+@media(prefers-reduced-motion:reduce){.process-scroll {scroll-behavior:auto;}}

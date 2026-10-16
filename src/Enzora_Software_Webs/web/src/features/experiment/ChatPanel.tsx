@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, isDemo } from "../../shared/api/client";
 import { downloadText, serializeCsv } from "../../shared/lib/download";
-import type { AtlasRecord,ProteinStructure } from "../../shared/api/contracts";
+import type { AtlasRecord,ProteinStructure,AssistantProgress } from "../../shared/api/contracts";
 import { ProteinViewer } from "../../shared/ui/PlotWrap";
 import { rememberRequest } from "../runs/requestStorage";
 import { useApp } from "../../app/store";
@@ -41,6 +41,9 @@ export function ChatPanel({
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [failedMessage, setFailedMessage] = useState("");
+  const [actionProgress,setActionProgress]=useState<AssistantProgress[]>([]);
+  const [elapsed,setElapsed]=useState(0);
+  useEffect(()=>{if(!busy)return;setElapsed(0);const started=Date.now();const timer=window.setInterval(()=>setElapsed(Math.floor((Date.now()-started)/1000)),1000);return()=>clearInterval(timer);},[busy]);
   const panel = useRef<HTMLElement>(null),
     composer = useRef<HTMLTextAreaElement>(null),
     end = useRef<HTMLDivElement>(null);
@@ -59,6 +62,7 @@ export function ChatPanel({
     setError("");
     setBusy(false);
     setFailedMessage("");
+    setActionProgress([]);
   }, [jobId]);
   useLayoutEffect(() => {
     const clamp = () => {
@@ -94,7 +98,7 @@ export function ChatPanel({
         ? "auto"
         : "smooth",
     });
-  }, [messages, busy]);
+  }, [messages, busy, actionProgress]);
   const send = async (value = input, retry = false) => {
     const text = value.trim();
     if (!text || busy) return;
@@ -104,9 +108,12 @@ export function ChatPanel({
     setBusy(true);
     setError("");
     setFailedMessage("");
+    setActionProgress([]);
     if (!retry) setMessages((m) => [...m, { role: "user", text }]);
     try {
-      const response = await api.chat(text, jobId, sessionId, jobId?undefined:sequence);
+      const response = await api.chat(text, jobId, sessionId, jobId?undefined:sequence,
+        event=>{if(token===version.current)setActionProgress(items=>[...items.filter(item=>!(event.phase==='tool_complete'&&item.phase==='tool_running'&&item.tool===event.tool)),event]);},
+        messages.slice(-6).map(item=>({role:item.role==='agent'?'assistant' as const:'user' as const,text:item.text})));
       if (token !== version.current) return;
       setMessages((m) => [
         ...m,
@@ -385,19 +392,12 @@ export function ChatPanel({
               </div>
             ))}
             {busy && (
-              <div className="copilot-thinking" role="status">
-                <span />
-                <span />
-                <span />
-                <p>
-                  {isDemo()
-                    ? zh
-                      ? "准备演示回复"
-                      : "Preparing demo reply"
-                    : zh
-                      ? "正在调用 MiniMax"
-                      : "Calling MiniMax"}
-                </p>
+              <div className="assistant-action-progress" role="status"><div><strong>{zh?'正在处理你的请求':'Working on your request'}</strong><span>{elapsed}s</span></div>
+                <ol>{(actionProgress.length?actionProgress:[{phase:'planning' as const}]).map((event,index)=>{
+                  const names:Record<string,string>={query_esm_atlas:'ESM Atlas',lookup_protein:zh?'检索蛋白':'Protein search',fetch_protein:zh?'获取序列':'Fetch sequence',balance_scores:zh?'应用评分配平':'Apply score balance',get_scorer_evidence:zh?'读取预测证据':'Read scorer evidence',prepare_mature_protein:zh?'提取指定区段':'Extract region',inspect_structure:zh?'载入 WT 结构':'Load WT structure',predict_structure:'ESMFold2',optimize_codons:zh?'优化密码子':'Optimize codons',translate_sequence:zh?'翻译序列':'Translate sequence'};
+                  const label=event.tool?names[event.tool]??event.tool:event.phase==='explaining'?(zh?'整理工具结果与下一步建议':'Summarizing results and next steps'):(zh?'结合上下文解析目标':'Interpreting your goal and context');
+                  return <li key={index} data-complete={event.phase==='tool_complete'||index<actionProgress.length-1}><span aria-hidden="true">{event.phase==='tool_complete'?'✓':'·'}</span>{label}{event.phase==='tool_running'?(zh?' · 执行中':' · running'):''}</li>;
+                })}</ol><p>{zh?'工具完成后会显示可检查和下载的结果。':'Tool outputs will appear here for inspection and download.'}</p>
               </div>
             )}
             {error && (

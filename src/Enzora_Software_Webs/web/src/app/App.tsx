@@ -91,13 +91,13 @@ export default function App() {
                 </a>
               </div>
             </section>
-            <section className="teams-acknowledgment" aria-labelledby="teams-ack"><div><h2 id="teams-ack">Acknowledgment</h2><p>{lang==='zh'?'感谢研究指导与项目支持。可横向滚动查看。':'Research guidance and project support. Scroll horizontally to explore.'}</p></div>
+            <section className="teams-acknowledgment" aria-labelledby="teams-ack"><div><h2 id="teams-ack">Acknowledgment</h2></div>
               <div className="acknowledgment-track" tabIndex={0} aria-label={lang==='zh'?'致谢机构，支持横向滚动':'Acknowledged groups; scroll horizontally'}>
-                <a href="https://github.com/Intelligent-Drug-Discovery-Lab" target="_blank" rel="noopener noreferrer"><img src={iddlabLogo} alt="Intelligent Drug Discovery Lab" width="92" height="92"/><div><h3>IDDLab</h3><p>{lang==='zh'?'感谢在研究方向与科学方法上的指导。':'For research guidance and scientific advice.'}</p></div><span aria-hidden="true">↗</span></a>
-                <a href="https://www.thetateam.net/" target="_blank" rel="noopener noreferrer"><img src={thetaLogo} alt="Theta Team · AI + Medicine" width="184" height="92"/><div><h3>Theta Team</h3><p>{lang==='zh'?'感谢研究交流与项目支持。':'For research collaboration and project support.'}</p></div><span aria-hidden="true">↗</span></a>
+                <a href="https://github.com/Intelligent-Drug-Discovery-Lab" target="_blank" rel="noopener noreferrer"><img src={iddlabLogo} alt="Intelligent Drug Discovery Lab" width="92" height="92"/><div><h3>IDDLab</h3><p>{lang==='zh'?'感谢科学指导与项目支持。':'For scientific guidance and project support.'}</p></div><span aria-hidden="true">↗</span></a>
+                <a href="https://www.thetateam.net/" target="_blank" rel="noopener noreferrer"><img src={thetaLogo} alt="Theta Team · AI + Medicine" width="184" height="92"/><div><h3>Theta Team</h3><p>{lang==='zh'?'感谢科学指导与项目支持。':'For scientific guidance and project support.'}</p></div><span aria-hidden="true">↗</span></a>
               </div>
             </section>
-            <p className="teams-note"><a href="https://doi.org/10.64898/2026.03.12.711044" target="_blank" rel="noopener noreferrer">Decorative protein illustration: Kong et al. · AnewOmni Fig. 1 · CC BY 4.0 ↗</a></p>
+            <details className="teams-asset-credits"><summary>{lang==='zh'?'素材来源':'Artwork sources'}</summary><p>Kong et al. · AnewOmni, Fig. 1. Background removed, colour-quantized and vectorized. <a href="https://doi.org/10.64898/2026.03.12.711044" target="_blank" rel="noopener noreferrer">Source ↗</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>. Other molecular decorations use RDKit molecular graphs and the 2FGY structure from the PDB.</p></details>
             <nav className="teams-workspace-links" aria-label={lang === 'zh' ? '工作区管理' : 'Workspace utilities'}>
               <Link to="/workbench">{lang === 'zh' ? '返回工作区' : 'Back to Workspace'} <span aria-hidden="true">↗</span></Link>
               <Link to="/history">{lang === 'zh' ? '运行记录' : 'History'}</Link>

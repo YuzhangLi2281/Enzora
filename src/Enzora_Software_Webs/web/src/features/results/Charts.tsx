@@ -709,8 +709,8 @@ export function MutationAtlas({
             </text>
             <text x="300" y="320" textAnchor="middle" className="atlas-caption">
               {zh
-                ? "完成评分，再确认 Next Process"
-                : "Complete scoring, then confirm Next Process."}
+                ? "完成评分，再选择 Top-K 并生成报告"
+                : "Complete scoring, then select Top-K and generate the report."}
             </text>
           </>
         )}

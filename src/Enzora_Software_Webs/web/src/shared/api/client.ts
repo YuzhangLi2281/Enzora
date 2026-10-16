@@ -10,6 +10,7 @@ import { demo } from "../demo/backend";
 import { normalizeApiBase, resolveDemoMode } from "./config";
 import type {
   AtlasRecord,
+  AssistantProgress,
   ProteinStructure,
   ClassifyResult,
   CodonOptimizeResponse,
@@ -143,6 +144,8 @@ export const api = {
     jobId: string | null,
     sessionId: string | null,
     proteinSequence?: string,
+    onProgress?: (event:AssistantProgress)=>void,
+    history?: {role:'user'|'assistant';text:string}[],
   ): Promise<{
     message: string;
     structure?: ProteinStructure;
@@ -159,10 +162,10 @@ export const api = {
     if (isDemo())
       return Promise.resolve({
         message: /[\u3400-\u9fff]/.test(message)
-          ? "这是本地演示回复，没有调用 MiniMax。你可以设置突变数量与阶数、体验三评分器配平，再通过 Next Process 查看 Top-K 和宿主密码子导出。连接真实后端后，助手才会根据自然语言调用相应工具。"
-          : "Demo assistant: no MiniMax request was made. Adjust preferences and confidence in the control panel, apply the balance, then use Next Process to advance.",
+          ? "这是本地演示回复，没有调用 MiniMax。你可以设置突变数量与阶数、体验三评分器配平，再通过 Select Top-K 查看候选和宿主密码子导出。连接真实后端后，助手才会根据自然语言调用相应工具。"
+          : "Demo assistant: no MiniMax request was made. Adjust preferences and confidence in the control panel, apply the balance, then select Top-K to generate the final report.",
       });
-    const response=await responseFor('/chat/stream',{method:'POST',body:JSON.stringify({message,job_id:jobId,session_id:sessionId,...(proteinSequence?{protein_sequence:proteinSequence}:{})})});
+    const response=await responseFor('/chat/stream',{method:'POST',body:JSON.stringify({message,job_id:jobId,session_id:sessionId,...(proteinSequence?{protein_sequence:proteinSequence}:{}),...(history?{history}:{})})});
     if(!response.body)throw new ApiError(502,'Assistant returned an empty stream.');
     const reader=response.body.getReader(),decoder=new TextDecoder();
     let buffer='';
@@ -177,6 +180,7 @@ export const api = {
           const data=frame.split('\n').filter(line=>line.startsWith('data:')).map(line=>line.slice(5).trimStart()).join('\n');
           if(!data)continue;
           const result=JSON.parse(data);
+          if(result.event==='progress')onProgress?.(result.data);
           if(result.event==='error')throw new ApiError(result.data.status,result.data.message);
           if(result.event==='complete')return result.data;
         }

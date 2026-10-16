@@ -78,6 +78,9 @@ export function Workbench() {
   const lastCount = useRef<{ n: number; t: number } | null>(null);
   const scroll = useRef<HTMLElement>(null);
   const sequenceView = useRef<HTMLDivElement>(null);
+  const navigation = useRef({frame:0,active:false,target:1});
+  const goRef = useRef<(phase:number)=>void>(()=>{});
+  const viewRef = useRef(1);
   useEffect(() => setPicked(null), [jobId]);
   useEffect(() => {
     if (!notice) return;
@@ -157,7 +160,7 @@ export function Workbench() {
         const box = section.getBoundingClientRect();
         return box.top <= anchor && box.bottom > anchor;
       });
-      if (current) setView(Number(current.dataset.phase));
+      if (current) {viewRef.current=Number(current.dataset.phase);setView(viewRef.current);}
     };
     root.addEventListener("scroll", update, { passive: true });
     window.addEventListener("resize", update);
@@ -168,19 +171,62 @@ export function Workbench() {
     };
   }, []);
   const go = (next: number) => {
-    const root = scroll.current;
-    const section = document.getElementById(`phase-${next}`);
-    if (!root || !section) return;
-    root.scrollTo({
-      top:
-        root.scrollTop +
-        section.getBoundingClientRect().top -
-        root.getBoundingClientRect().top,
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-        ? "auto"
-        : "smooth",
-    });
+    const root=scroll.current,section=document.getElementById(`phase-${next}`);
+    if(!root||!section||next<1||next>3)return;
+    const state=navigation.current;
+    cancelAnimationFrame(state.frame);
+    const start=root.scrollTop;
+    const target=start+section.getBoundingClientRect().top-root.getBoundingClientRect().top;
+    const duration=matchMedia('(prefers-reduced-motion: reduce)').matches?0:Math.min(900,620+Math.abs(target-start)/root.clientHeight*110);
+    state.active=true;state.target=next;root.dataset.transition='true';root.style.scrollBehavior='auto';
+    const began=performance.now();
+    const tick=(time:number)=>{
+      const t=duration===0?1:Math.min(1,(time-began)/duration);
+      const eased=t*t*t*(t*(t*6-15)+10);
+      root.scrollTop=start+(target-start)*eased;
+      if(t<1)state.frame=requestAnimationFrame(tick);
+      else {state.active=false;delete root.dataset.transition;root.style.scrollBehavior='';viewRef.current=next;setView(next);}
+    };
+    state.frame=requestAnimationFrame(tick);
   };
+  goRef.current=go;
+  useEffect(()=>{
+    const root=scroll.current!;
+    const gesture={last:0,total:0,latched:false};
+    const wheel=(event:WheelEvent)=>{
+      if(event.defaultPrevented||event.ctrlKey||Math.abs(event.deltaX)>Math.abs(event.deltaY))return;
+      if(event.target instanceof Element&&event.target.closest('.mutation-atlas:not(.is-empty)'))return;
+      // Editors, result lists and the molecular map retain their own scrolling.
+      let element=event.target instanceof HTMLElement?event.target:null;
+      while(element&&element!==root){
+        const style=getComputedStyle(element);
+        if(/auto|scroll/.test(style.overflowY)&&element.scrollHeight>element.clientHeight+1){
+          const canScroll=event.deltaY>0?element.scrollTop+element.clientHeight<element.scrollHeight-2:element.scrollTop>2;
+          if(canScroll)return;
+        }
+        element=element.parentElement;
+      }
+      if(innerWidth<=1000)return;
+      event.preventDefault();
+      const now=performance.now();
+      if(now-gesture.last>180){gesture.total=0;gesture.latched=false;}
+      gesture.last=now;
+      if(navigation.current.active||gesture.latched)return;
+      const delta=event.deltaY*(event.deltaMode===1?16:event.deltaMode===2?root.clientHeight:1);
+      if(Math.sign(delta)!==Math.sign(gesture.total))gesture.total=0;
+      gesture.total+=delta;
+      if(Math.abs(gesture.total)<42)return;
+      gesture.latched=true;
+      goRef.current(Math.max(1,Math.min(3,viewRef.current+Math.sign(gesture.total))));
+    };
+    const keyboard=(event:KeyboardEvent)=>{
+      if((event.target as HTMLElement).closest('input,textarea,select,button,a,[contenteditable=true]'))return;
+      const target=event.key==='PageDown'?viewRef.current+1:event.key==='PageUp'?viewRef.current-1:event.key==='Home'?1:event.key==='End'?3:null;
+      if(target!==null){event.preventDefault();goRef.current(Math.max(1,Math.min(3,target)));}
+    };
+    root.addEventListener('wheel',wheel,{passive:false});window.addEventListener('keydown',keyboard);
+    return()=>{root.removeEventListener('wheel',wheel);window.removeEventListener('keydown',keyboard);cancelAnimationFrame(navigation.current.frame);};
+  },[]);
   const perform = async (action: () => Promise<unknown>) => {
     setBusy(true);
     setError("");
@@ -689,8 +735,8 @@ export function Workbench() {
                           : "This run has stopped. Check the run message and saved prediction outputs."
                         : waiting && phase === 2
                         ? zh
-                          ? "评分已就绪。调整配平后，用 Next Process 确认进入结果阶段。"
-                          : "Scores are ready. Adjust the balance, then confirm with Next Process."
+                          ? "评分已就绪。调整配平后，到结果页筛选 Top-K。"
+                          : "Scores are ready. Review the balance, then select Top-K on the Output page."
                         : run.meta?.status === "success"
                           ? zh
                             ? "Top-K 与报告已生成。可在结果页检查序列并导出。"
@@ -875,13 +921,7 @@ export function Workbench() {
               >
                 {zh ? "启动虚拟筛选" : "Start Screening"} ↗
               </button>
-              <button
-                className="next-process"
-                disabled={busy || !(waiting && phase === 2)}
-                onClick={next}
-              >
-                Next Process <span>↓</span>
-              </button>
+
             </div>
           </section>
           <section
@@ -900,6 +940,7 @@ export function Workbench() {
               <div className="output-intro">
                 <h2>{zh?'突变分布 UMAP 可视化':'Mutation distribution · UMAP'}</h2>
                 <p>{zh?'选择 Top-K 候选突变酶序列。':'Select Top-K candidate mutated enzyme proteins.'}</p>
+                {waiting&&phase===2&&<button className="primary output-select" disabled={busy} onClick={next}>{zh?'筛选 Top-K 并生成报告':'Select Top-K & generate report'} ↗</button>}
                 <div className="output-metrics">
                   <div>
                     <strong>
@@ -952,8 +993,8 @@ export function Workbench() {
                         ? "本次流程已停止，尚未生成最终报告。请查看运行日志与已保存的预测结果。"
                         : "This run stopped before producing a final report. Inspect the run log and saved predictions.")
                       : (zh
-                        ? "完成建库与评分，并确认 Next Process 后，报告将在这里呈现。"
-                        : "Complete the library and scoring phases, then confirm Next Process to generate the report."))}
+                        ? "完成评分后，点击本页的“筛选 Top-K 并生成报告”。"
+                        : "After scoring, select Top-K on this page to generate the report."))}
                 </p>
                 <button
                   className="text-button"

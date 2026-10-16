@@ -338,3 +338,8 @@ export interface AtlasRecord {
   structure?: ProteinStructure;
   similar_proteins?: {protein_hash:string;protein_accession:string;similarity_score:number;protein_name?:string;sequence_length?:number}[];
 }
+
+export interface AssistantProgress {
+  phase:'planning'|'tool_running'|'tool_complete'|'explaining';
+  tool?:string;
+}

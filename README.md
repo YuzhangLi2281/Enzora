@@ -12,7 +12,7 @@ Enzora connects a three-model mutation library to multi-objective screening and 
 2. **Screen and balance.** Phenom predicts enzyme–substrate kinetics, EpHod predicts optimum pH, and UniStab predicts stability changes. MiniMax reads their prediction evidence and proposes confidence controls. User preferences remain explicit and editable.
 3. **Inspect and export.** Explore the sequence UMAP, compare Top-K candidates with WT, inspect every substitution and export the report or sequence records. Optional codon optimization generates synonymous DNA for the selected expression host.
 
-Scrolling and stage navigation change the view. **Start Screening** starts prediction after library construction; **Next Process** starts final selection and reporting after scoring. These actions are explicit computational boundaries.
+Desktop wheel gestures move between three full-screen stages with eased acceleration and deceleration. Scrolling and stage navigation change the view. **Start Screening** starts prediction after library construction; **Select Top-K & generate report** starts final selection and reporting after scoring. These actions are explicit computational boundaries.
 
 The live workspace requires a workspace access code. Demo mode runs in the browser with labelled simulated results.
 
@@ -156,7 +156,7 @@ Enzora combines the following projects. Their source, weights and licences remai
 - [Kazusa Codon Usage Database](https://www.kazusa.or.jp/codon/): host-specific codon usage.
 - [AnewOmni](https://anewbt.com/research/anewomni/): scientific illustration reference. The adapted protein decoration credits Kong et al., Fig. 1, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), [DOI](https://doi.org/10.64898/2026.03.12.711044).
 
-We thank [IDDLab](https://github.com/Intelligent-Drug-Discovery-Lab) for research guidance and [Theta Team](https://www.thetateam.net/) for research and project support.
+We thank [IDDLab](https://github.com/Intelligent-Drug-Discovery-Lab) and [Theta Team](https://www.thetateam.net/) for scientific guidance and project support.
 
 ## License
 

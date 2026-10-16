@@ -564,3 +564,12 @@ test('Sequence and Atlas tools send explicit inputs only to the Enzora API',asyn
  assert.equal(sent[0][0],'/api/tools/atlas');assert.deepEqual(sent[0][1],{query:'P01308',similar:false});
  assert.equal(sent[1][0],'/api/tools/sequence');assert.deepEqual(sent[1][1],{tool:'prepare_mature_protein',sequence:'ACDE',arguments:{start:2,end:4}});
 });
+
+test('Assistant forwards real progress and bounded conversation context before the final reply',async()=>{
+ const progress=[];let sent;
+ const event={phase:'tool_running',tool:'query_esm_atlas'};
+ const h=harness({query:'?demo=0',fetchImpl:async(url,init)=>{sent=JSON.parse(init.body);return new Response('data: '+JSON.stringify({event:'progress',data:event})+'\n\ndata: '+JSON.stringify({event:'complete',data:{message:'Retrieved protein'}})+'\n\n');}});
+ const history=[{role:'user',text:'Find P01308'}];
+ const result=await h.load('shared/api/client').api.chat('Show its metadata',null,null,undefined,e=>progress.push(e),history);
+ assert.deepEqual(JSON.parse(JSON.stringify(progress)),[event]);assert.deepEqual(sent.history,history);assert.equal(result.message,'Retrieved protein');
+});

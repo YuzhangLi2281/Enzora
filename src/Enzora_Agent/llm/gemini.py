@@ -146,11 +146,13 @@ class MiniMaxClient:
         return value
 
     def tool_loop(self, *, model: str, system_prompt: str, user_prompt: str,
-                  tools: list[dict], execute, max_tokens: int = 8192, max_steps: int = 4) -> dict:
+                  tools: list[dict], execute, max_tokens: int = 8192, max_steps: int = 4, progress=None) -> dict:
         messages = [{'role': 'system', 'content': system_prompt}, {'role': 'user', 'content': user_prompt}]
         allowed = {tool['function']['name'] for tool in tools}
         completed = []
         for _ in range(max_steps):
+            if progress:
+                progress({'phase':'explaining' if completed else 'planning'})
             try:
                 message = self.complete(model=model, messages=messages, tools=tools, max_tokens=max_tokens)
             except RuntimeError:
@@ -173,8 +175,12 @@ class MiniMaxClient:
                 decoded.append((call, name, arguments))
             messages.append(message)
             for call, name, arguments in decoded:
+                if progress:
+                    progress({'phase':'tool_running','tool':name})
                 result = execute(name, arguments)
                 completed.append({'tool': name, 'arguments': arguments, 'result': result})
+                if progress:
+                    progress({'phase':'tool_complete','tool':name})
                 messages.append({'role': 'tool', 'tool_call_id': call['id'],
                                  'content': json.dumps(result, ensure_ascii=False, allow_nan=False)})
         raise RuntimeError('Assistant tool step limit reached')
