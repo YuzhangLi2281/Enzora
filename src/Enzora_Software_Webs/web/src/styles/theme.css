@@ -4645,3 +4645,4 @@ body,
 :root[data-theme="deep-space"] .acknowledgment-track :is(p,h3),:root[data-theme="deep-space"] .teams-acknowledgment > div:first-child p {color:#b7cada;}
 
 .scoring-waterfall svg text {font-size:13px;}
+.atlas-record-card :is(h4,button) {max-width:100%;overflow-wrap:anywhere;}
