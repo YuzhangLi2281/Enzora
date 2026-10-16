@@ -26,7 +26,7 @@ import {
 const scorers = [
   {
     key: "activity",
-    name: "PheNom",
+    name: "Phenom",
     field: "activity_log10",
     label: "log₁₀ kcat",
     color: "var(--score-activity)",
@@ -190,8 +190,8 @@ export function Workbench() {
       if (!ligand.trim())
         throw new Error(
           zh
-            ? "PheNom 需要底物 SMILES。"
-            : "PheNom requires the substrate SMILES.",
+            ? "Phenom 需要底物 SMILES。"
+            : "Phenom requires the substrate SMILES.",
         );
       if (selectionError(selection))
         throw new Error(
@@ -464,8 +464,8 @@ export function Workbench() {
                       </div>
                       <label className="field">
                         {zh
-                          ? "底物 SMILES · PheNom 必填"
-                          : "Substrate SMILES · Required for PheNom"}
+                          ? "底物 SMILES · Phenom 必填"
+                          : "Substrate SMILES · Required for Phenom"}
                         <input
                           value={ligand}
                           onChange={(e) => setLigand(e.target.value)}
@@ -476,9 +476,13 @@ export function Workbench() {
                         />
                       </label>
                       <p className="small dim">
-                        {zh
-                          ? "示例蛋白与底物仅用于演示，不代表真实实验。"
-                          : "The sample protein and substrate are illustrative only."}
+                        {isDemo()
+                          ? zh
+                            ? "示例蛋白与底物仅用于演示，不代表真实实验。"
+                            : "The sample protein and substrate are illustrative only."
+                          : zh
+                            ? "活性预测对应当前酶序列与底物的组合。"
+                            : "Activity predictions are specific to this enzyme–substrate pair."}
                       </p>
                     </>
                   )}
@@ -741,7 +745,11 @@ export function Workbench() {
                       {zh ? "Agent 决策状态" : "Agent decision state"}
                     </strong>
                     <p>
-                      {waiting && phase === 2
+                      {run.meta?.status === 'failed' || run.meta?.status === 'cancelled'
+                        ? zh
+                          ? "本轮已停止。请检查运行提示与已保存的预测输出。"
+                          : "This run has stopped. Check the run message and saved prediction outputs."
+                        : waiting && phase === 2
                         ? zh
                           ? "评分已就绪。调整配平后，用 Next Process 确认进入结果阶段。"
                           : "Scores are ready. Adjust the balance, then confirm with Next Process."
@@ -755,7 +763,7 @@ export function Workbench() {
                               : "Balance confirmed. Selecting candidates and preparing the report."
                             : zh
                               ? "等待各评分器输出，不将模拟值作为真实预测。"
-                              : "Waiting for scorer outputs. Demo values remain illustrative."}
+                              : "Waiting for measured scorer outputs."}
                     </p>
                   </div>
                 </div>
@@ -925,7 +933,7 @@ export function Workbench() {
               <span>
                 {zh
                   ? "PheNom 是唯一酶活性评分器"
-                  : "PheNom is the sole activity predictor"}
+                  : "Phenom is the sole activity predictor"}
               </span>
               <button
                 className="next-process"
