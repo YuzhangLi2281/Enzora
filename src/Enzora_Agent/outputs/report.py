@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from pathlib import Path
+import json
 
 import pandas as pd
 
 
 _TEXT = {
     "zh": {
-        "title": "FixedEnzymeAgent 分析报告",
+        "title": "Enzora 分析报告",
         "goal": "用户目标",
         "no_goal": "未提供自然语言目标；使用配置文件中的筛选参数。",
         "selected": "最终候选",
@@ -41,7 +42,7 @@ _TEXT = {
         "codon_not_requested": "本次未请求密码子优化。",
     },
     "en": {
-        "title": "FixedEnzymeAgent Analysis Report",
+        "title": "Enzora Analysis Report",
         "goal": "User goal",
         "no_goal": "No natural-language goal was provided; selection parameters came from the config file.",
         "selected": "Selected candidates",
@@ -206,6 +207,22 @@ def build_markdown_report(
         "",
         user_request.strip() if user_request and user_request.strip() else text["no_goal"],
         "",
+    ]
+    balance_path = run_dir / 'balancing.json'
+    if balance_path.exists():
+        balance = json.loads(balance_path.read_text(encoding='utf-8'))
+        lines.extend([
+            '## 实际评分配比' if language == 'zh' else '## Applied score balance', '',
+            '| Model | Preference | Confidence control | Effective weight |',
+            '| --- | ---: | ---: | ---: |',
+            *[f"| {model} | {balance['preferences'][key]:.4f} | {balance['confidence'][key]:.4f} | {balance['effective_weights'][key]:.6f} |"
+              for key, model in [('activity', 'Phenom'), ('ph', 'EpHod'), ('stability', 'UniStab')]],
+            '',
+            '综合分使用最后一列的归一化权重；可信度控制不是校准概率。' if language == 'zh'
+            else 'Composite scores use the normalized effective weights in the final column. Confidence controls are not calibrated probabilities.',
+            '',
+        ])
+    lines.extend([
         f"## {text['selected']}",
         "",
         _selected_table(selected_csv, language),
@@ -216,7 +233,7 @@ def build_markdown_report(
         "",
         f"## {text['visuals']}",
         "",
-    ]
+    ])
 
     for image in figure_paths:
         relative = image.relative_to(run_dir).as_posix()

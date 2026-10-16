@@ -6,6 +6,7 @@ from pathlib import Path
 import pandas as pd
 
 from .gemini import GeminiClient, MiniMaxClient
+from ..core.screening import balance_weights
 
 
 _SYSTEM_PROMPTS = {
@@ -65,9 +66,12 @@ def analyze_results(
         "mutation",
         "position",
         "activity_log10",
+        "activity_sigma_log10",
         "ph_opt",
+        "ph_uncertainty",
         "delta_ph_from_wt",
         "ddg",
+        "stability_uncertainty",
         "activity_component",
         "ph_component",
         "stability_component",
@@ -98,6 +102,8 @@ def analyze_results(
         "report_language": language,
         "user_request": cfg.get("user_request"),
         "selection": cfg["selection"],
+        "effective_weights": balance_weights(cfg['selection']['weights'], cfg['selection']['confidence']),
+        "wt_reference": cfg['selection'].get('reference'),
         "candidate_pool_size": int(len(df)),
         "wt_predicted_optimum_ph": float(wt_ph),
         "top_candidates": rows,
@@ -110,7 +116,15 @@ def analyze_results(
     )
     return client.text(
         model=llm_cfg["analysis_model"],
-        system_prompt=_SYSTEM_PROMPTS[language],
+        system_prompt=_SYSTEM_PROMPTS[language] + """
+Keep the explanation within 350 words. Begin with the applied effective_weights, separately from
+the raw user preferences and confidence controls. Effective weights, not preferences, determine
+the final ranking. Compare every claimed activity or pH improvement against wt_reference.
+A selected candidate can have lower activity than WT: never call that an activity gain.
+Pareto status is a boolean, not a separate ranked score. Positive raw ddG indicates predicted
+destabilization; a smaller positive value is only relatively less destabilizing. Report uncertainty
+proxies as model evidence, never as experimentally established model reliability. Do not infer
+that combining selected mutations will preserve or improve their predicted properties.""",
         user_prompt=instruction + json.dumps(payload, ensure_ascii=False, indent=2),
         max_tokens=int(llm_cfg.get("max_tokens", 4000)),
     )
