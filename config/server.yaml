@@ -31,7 +31,7 @@ execution:
     account: bi46
     partition: fit
     cpus_per_task: 8
-    memory: 32G
+    memory: 64G
     gpu_resource: gpu:1
     qos: null
     constraint: null

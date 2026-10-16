@@ -93,7 +93,7 @@ def replace_linear_with_lora(
             
             if should_replace:
                 # print original layer info for debugging
-                print(f"\ud83d\udd27 original layer {full_name}: {child.in_features} -> {child.out_features}")
+                print(f"original layer {full_name}: {child.in_features} -> {child.out_features}")
                 
                 # create efficient LoRA layer
                 lora_layer = EfficientLoRALinear(
@@ -108,7 +108,7 @@ def replace_linear_with_lora(
                 
                 setattr(module, name, lora_layer)
                 replaced_count += 1
-                print(f"\u2705 replace layer: {full_name} (LoRA parameters: {rank * (child.in_features + child.out_features):,})")
+                print(f"replace layer: {full_name} (LoRA parameters: {rank * (child.in_features + child.out_features):,})")
         else:
             # recursively process submodule
             replaced_count += replace_linear_with_lora(

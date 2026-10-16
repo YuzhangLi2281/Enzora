@@ -275,8 +275,10 @@ EpHod 使用两子模型分歧作为代理，UniStab 使用仅回归头的 3 次
 
 服务目录按 `releases/`（源码）、`config/`（私有运行配置）、`shared/weights/`（权重映射）、`shared/cache/`（跨任务缓存）、`runtime/`（服务环境）、`logs/`、`run/live/<job_id>/`（独立运行）分开。API Python 环境与科学模型环境隔离。模型解释器必须保留 conda 符号链接路径，不能通过 realpath 改变解释器所属环境。
 
-VESM3 先严格加载 ESM3 完整基础权重，再核对并覆盖末五层微调的精确 50 个键；它不是独立的 50 参数完整模型。残基注释 tokenizer CSV 也必须显式配置为服务器本地资源。EnzGFM 需要匹配的自定义模型源码和 tokenizer；Phenom 的蛋白缓存需要包含 `EsmcModel` 的匹配 ESMC 实现，不能直接换成同名官方接口。当前服务器复用了既有 PHENOM/VESM 的受控源码副本；这些外部源码与权重路径是部署依赖，不能假设本仓库已包含它们。
+VESM3 先严格加载 ESM3 完整基础权重，再核对并覆盖末五层微调的精确 50 个键；它不是独立的 50 参数完整模型。残基注释 tokenizer CSV 也必须显式配置为服务器本地资源。EnzGFM 需要匹配的自定义模型源码和 tokenizer；Phenom 的蛋白缓存需要包含 `EsmcModel` 的匹配 ESMC 实现，不能直接换成同名官方接口。当前服务器复用了既有 PHENOM/VESM 的受控源码副本；这些外部源码与权重路径是部署依赖，不能假设本仓库已包含它们。UniStab 同样需要原配套 `vendor/fair_esm`、`vendor/openfold` 与 `vendor/dllogger`，适配器会核对这些依赖并为独立子进程设置搜索路径。
 
 命名隧道凭据与 API/Gemini 凭据仅保存在服务器私有配置，公开静态仓库只包含 API 域名。CPU API 服务与 GPU 推理分开申请 Slurm 资源。服务分配有时限；已配置的接续作业必须等前一服务结束后才启动，避免两个 API manager 同时写同一任务目录。GPU 作业在 API 接续后由持久化作业 ID 接管，不能重新提交冒充恢复。运维停止时须先取消待接续作业，再停止当前服务；固定域名和自动接续均不能保证集群停机期间可用。
 
 每轮缓存采用服务器保留策略：`runtime.keep_temp: false` 时，网页请求不能开启长期调试缓存。任务结束后从 API 内存回收运行 handle、事件队列和任务级 Key 引用；历史信息从磁盘元数据与结果读取，Assistant 也从持久化结果获取上下文。清理不作用于共享权重、tokenizer、公共密码子表或仍运行的作业；`cache_cleanup.json` 记录释放字节数和明确错误。模型子进程退出后由操作系统/Slurm 回收 CPU/GPU 内存，磁盘清理不等同于清空显存。
+
+M3 实测 UniStab 主干加载内存接近 32 GiB，因此后续 GPU 作业配置申请 64G 系统内存；它与服务 API 的 8G CPU 分配分开。Slurm 模式保留调度器提供的 `CUDA_VISIBLE_DEVICES` 掩码，模型使用逻辑 `cuda:0`，不能用网页 GPU 编号覆盖物理分配。

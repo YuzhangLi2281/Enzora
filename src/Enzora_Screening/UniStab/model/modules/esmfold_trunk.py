@@ -42,9 +42,9 @@ class SimpleTrunkExtractor(nn.Module):
         trainable_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
         total_params = sum(p.numel() for p in self.parameters())
         
-        print(f"\ud83d\udcca trainable parameters: {trainable_params:,}")
-        print(f"\ud83d\udcca total parameters: {total_params:,}")
-        print(f"\ud83d\udcca trainable ratio: {100 * trainable_params / total_params:.4f}%")
+        print(f"trainable parameters: {trainable_params:,}")
+        print(f"total parameters: {total_params:,}")
+        print(f"trainable ratio: {100 * trainable_params / total_params:.4f}%")
         
     def forward(self, aa_tokens, mask):
         """
