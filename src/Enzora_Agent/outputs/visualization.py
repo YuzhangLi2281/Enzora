@@ -29,7 +29,7 @@ def _plot_final_scores(selected: pd.DataFrame, path: Path) -> Path:
     ax.set_xlabel("Final score")
     ax.set_ylabel("Mutation")
     ax.set_title("Selected mutation candidates")
-    ax.grid(axis="x", alpha=0.2)
+    ax.grid(False)
     fig.tight_layout()
     fig.savefig(path, dpi=200, bbox_inches="tight")
     plt.close(fig)
