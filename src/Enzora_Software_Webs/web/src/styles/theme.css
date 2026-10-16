@@ -4477,7 +4477,7 @@ body,
 :root[data-theme="deep-space"] .enzora-teams-page :is(.teams-note,.teams-project,.teams-resource-list p) { color:#b7cada; }
 :root[data-theme="deep-space"] .enzora-teams-page .teams-pending { background:#ffffff07 !important; }
 :root[data-theme="macaron"] .process-scroll > .process-canvas { background:linear-gradient(180deg,#fdfefe 0%,#f7fbff 11%,#edf5ff 38%,#edf0fb 65%,#eee8f6 100%); }
-.process-canvas > .process-section > .stage-decoration { position:absolute; width:78%; height:88%; object-fit:contain; pointer-events:none; user-select:none; z-index:-1; opacity:.075; mask-image:radial-gradient(ellipse,#000 24%,transparent 74%); animation:stage-molecule-float 24s cubic-bezier(.45,0,.55,1) infinite alternate,stage-molecule-breathe 10s ease-in-out infinite alternate; animation-delay:-9s,-3s; will-change:transform,opacity; transform-origin:50% 50%; backface-visibility:hidden; }
+.process-canvas > .process-section > .stage-decoration { position:absolute; width:78%; height:88%; object-fit:contain; pointer-events:none; user-select:none; z-index:-1; opacity:.075; mask-image:radial-gradient(ellipse,#000 24%,transparent 74%); animation:stage-molecule-float 18s ease-in-out infinite alternate,stage-molecule-breathe 7s ease-in-out infinite alternate,stage-molecule-sway 13s ease-in-out infinite alternate; animation-delay:-9s,-3s,-6s; will-change:transform,translate,opacity; transform-origin:50% 50%; backface-visibility:hidden; }
 .process-canvas > .process-section > .stage-decoration-library { --stage-angle:-12deg; top:4%; right:-7%; opacity:.105; }
 .process-canvas > .process-section > .stage-decoration-screening { --stage-angle:15deg; top:9%; right:18%; width:85%; }
 .process-canvas > .process-section > .stage-decoration-output { --stage-angle:-22deg; top:6%; right:-6%; width:92%; opacity:.065; }
@@ -4718,15 +4718,15 @@ body,
 /* Buoyant motion: fixed orientation, a slow vertical drift and a separate
    opacity breath. No animated filter or angular sweep that re-rasterizes art. */
 @keyframes stage-molecule-float {
- from {transform:translate3d(-4px,12px,0) rotate(var(--stage-angle,0deg)) scale(.995);}
- to {transform:translate3d(5px,-14px,0) rotate(var(--stage-angle,0deg)) scale(1.012);}
+ from {transform:translate3d(0,14px,0) rotate(var(--stage-angle,0deg)) scale(.99);}
+ to {transform:translate3d(0,-16px,0) rotate(var(--stage-angle,0deg)) scale(1.02);}
 }
 @keyframes stage-molecule-breathe {
- from {opacity:calc(var(--stage-opacity,.14)*.62);}
+ from {opacity:calc(var(--stage-opacity,.14)*.55);}
  to {opacity:var(--stage-opacity,.14);}
 }
-.process-canvas > .process-section > .stage-decoration-screening {animation-duration:32s,12s;animation-delay:-17s,-7s;}
-.process-canvas > .process-section > .stage-decoration-output {animation-duration:28s,11s;animation-delay:-5s,-2s;}
+.process-canvas > .process-section > .stage-decoration-screening {animation-duration:16s,8.5s,15s;animation-delay:-7s,-4s,-11s;}
+.process-canvas > .process-section > .stage-decoration-output {animation-duration:20s,9s,17s;animation-delay:-5s,-2s,-8s;}
 
 @media(max-width:700px){.app-header .nav-link{font-size:14px;}.atlas-color-key{left:3px;width:66px;font-size:12px;}.atlas-color-key i{height:120px;width:16px;}.atlas-color-key small{font-size:9px;}.section-heading .library-stage-title{margin-top:18px;}}
 
@@ -4753,3 +4753,5 @@ body,
  .atlas-color-key {left:0;width:62px;}
  .atlas-color-key i {width:22px;height:128px;}
 }
+
+@keyframes stage-molecule-sway {from {translate:-12px 0;}to {translate:12px 0;}}
