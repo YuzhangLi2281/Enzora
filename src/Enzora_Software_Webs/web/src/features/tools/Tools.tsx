@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api, isDemo } from '../../shared/api/client';
@@ -32,6 +32,14 @@ export function Tools() {
   const [structure,setStructure]=useState<Awaited<ReturnType<typeof api.sequenceTool>>['structure']>();
   const [exportRows,setExportRows]=useState<Record<string,unknown>[]>([]);
   const [fasta,setFasta]=useState('');
+  useEffect(()=>{
+    setResult(null);
+    setAtlas(null);
+    setStructure(undefined);
+    setExportRows([]);
+    setFasta('');
+    setError('');
+  },[sequence,type,operation,atlasQuery,similar,host,start,end]);
   const perform=async(action:()=>Promise<void>)=>{setBusy(true);setError('');try{await action();}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setBusy(false);}};
   const loadRun=async(id:string)=>{
     setJob(id);
@@ -72,7 +80,7 @@ export function Tools() {
           <h2 id="tools-sequence">{zh?'序列输入':'Sequence input'}</h2>
           <div className="tools-input-meta"><label>{zh?'类型':'Type'}<select value={type} disabled={busy} onChange={e=>setType(e.target.value as typeof type)}><option value="protein">Protein</option><option value="dna">DNA</option><option value="rna">RNA</option></select></label><span>{sequence.length} {zh?'字符':'characters'}</span></div>
           <textarea aria-label={zh?'工具输入序列':'Tool input sequence'} value={sequence} rows={6} spellCheck={false} disabled={busy} onChange={e=>{setSequence(e.target.value);setJob('');}} placeholder={zh?'粘贴序列，或从下方导入文件':'Paste a sequence, or import a file below'}/>
-          <InputFiles lang={lang} sessionId={sessionId} typeOverride={type} disabled={busy} onResults={items=>{
+          <InputFiles lang={lang} sessionId={sessionId} typeOverride={type} disabled={busy} onBusy={setBusy} onResults={items=>{
             if(items.length!==1||items[0].result.records?.length!==1)throw new Error(zh?'请每次导入一条明确的序列。':'Import one explicit sequence at a time.');
             const r=items[0].result.records![0];setSequence(r.sequence);setType(r.type as typeof type);setEnd(r.sequence.length);setJob('');
           }}/>
@@ -82,9 +90,9 @@ export function Tools() {
               <option value="atlas">ESM Atlas · {zh?"蛋白信息与结构":"Protein information & structure"}</option>
               <option value="codon">{zh?'宿主密码子优化':'Host codon optimization'}</option><option value="translate">{zh?'DNA / RNA 翻译':'DNA / RNA translation'}</option><option value="region">{zh?'提取指定成熟区段':'Extract specified mature region'}</option><option value="inspect_structure">{zh?'查看输入 WT 结构':'Inspect supplied WT structure'}</option><option value="predict_structure" disabled={!foldReady}>ESMFold2 {foldReady?'':(zh?'· 未配置':'· Not configured')}</option>
             </select>
-            {operation==='atlas'&&<><label>{zh?'UniProt ID / Atlas hash（或使用上方序列）':'UniProt ID / Atlas hash (or use the sequence above)'}<input value={atlasQuery} onChange={e=>setAtlasQuery(e.target.value)} placeholder="P01308"/></label><label className="atlas-similarity-option"><input type="checkbox" checked={similar} onChange={e=>setSimilar(e.target.checked)}/>{zh?'按序列查询 SAE 特征相似蛋白':'Find SAE feature-similar proteins from a sequence'}</label></>}
-            {operation==='codon' &&<label>{zh?'表达宿主':'Expression host'}<select value={host} onChange={e=>setHost(e.target.value)}>{(hosts.data??[]).map(h=><option key={h.key} value={h.key}>{h.scientific_name}</option>)}</select></label>}
-            {operation==='region'&&<><div className="tools-region-fields"><label>{zh?'起始位点（含）':'Start (inclusive)'}<input type="number" min={1} max={sequence.length} value={start} onChange={e=>setStart(Number(e.target.value))}/></label><label>{zh?'结束位点（含）':'End (inclusive)'}<input type="number" min={start} max={sequence.length} value={end} onChange={e=>setEnd(Number(e.target.value))}/></label></div><p>{zh?'按你指定的编号提取，不推断信号肽或切割位点；不会替换运行中的序列。':'Uses your residue interval; does not predict signal peptides or cleavage sites, or replace an active run.'}</p></>}
+            {operation==='atlas'&&<><label>{zh?'UniProt ID / Atlas hash（或使用上方序列）':'UniProt ID / Atlas hash (or use the sequence above)'}<input disabled={busy} value={atlasQuery} onChange={e=>setAtlasQuery(e.target.value)} placeholder="P01308"/></label><label className="atlas-similarity-option"><input type="checkbox" disabled={busy} checked={similar} onChange={e=>setSimilar(e.target.checked)}/>{zh?'按序列查询 SAE 特征相似蛋白':'Find SAE feature-similar proteins from a sequence'}</label></>}
+            {operation==='codon' &&<label>{zh?'表达宿主':'Expression host'}<select disabled={busy} value={host} onChange={e=>setHost(e.target.value)}>{(hosts.data??[]).map(h=><option key={h.key} value={h.key}>{h.scientific_name}</option>)}</select></label>}
+            {operation==='region'&&<><div className="tools-region-fields"><label>{zh?'起始位点（含）':'Start (inclusive)'}<input type="number" disabled={busy} min={1} max={sequence.length} value={start} onChange={e=>setStart(Number(e.target.value))}/></label><label>{zh?'结束位点（含）':'End (inclusive)'}<input type="number" disabled={busy} min={start} max={sequence.length} value={end} onChange={e=>setEnd(Number(e.target.value))}/></label></div><p>{zh?'按你指定的编号提取，不推断信号肽或切割位点；不会替换运行中的序列。':'Uses your residue interval; does not predict signal peptides or cleavage sites, or replace an active run.'}</p></>}
             {operation==='inspect_structure'&&<p>{zh?'仅显示与当前序列完全对应的已提供 WT 骨架。预测新结构请使用 ESMFold2。':'Displays the supplied WT backbone only when it matches this sequence. Use ESMFold2 for new predictions.'}</p>}
             <button className="primary" disabled={busy||(!sequence&&!(operation==='atlas'&&atlasQuery.trim()))||(operation==='predict_structure'&&!foldReady)} onClick={run}>{busy?(zh?'正在调用…':'Running…'):(zh?'运行工具':'Run tool')} ↗</button>
           </div>
