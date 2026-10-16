@@ -76,6 +76,7 @@ export function Workbench() {
   const [rate, setRate] = useState(0);
   const lastCount = useRef<{ n: number; t: number } | null>(null);
   const scroll = useRef<HTMLElement>(null);
+  const sequenceView = useRef<HTMLDivElement>(null);
   useEffect(() => setPicked(null), [jobId]);
   useEffect(() => {
     if (!notice) return;
@@ -105,6 +106,18 @@ export function Workbench() {
     ? (selected.find((c) => c.mutation === picked) ??
       run.rawCandidates.find((c) => c.mutation === picked))
     : selected[0];
+  useEffect(() => {
+    const area = sequenceView.current;
+    if (!area) return;
+    const residue = area.querySelector("mark");
+    if (!residue) {
+      area.scrollTop = 0;
+      return;
+    }
+    const box = area.getBoundingClientRect();
+    const mutation = residue.getBoundingClientRect();
+    area.scrollTop += mutation.top - box.top - (area.clientHeight - mutation.height) / 2;
+  }, [current?.mutation, current?.mutant_sequence]);
   const weights = selection.weights,
     confidence = selection.confidence!;
   const total = Object.keys(weights).reduce(
@@ -275,7 +288,7 @@ export function Workbench() {
   const exportCodons = () =>
     void perform(async () => {
       const rows: Record<string, unknown>[] = [];
-      for (const row of selected) {
+      for (const row of [{ mutation: "WT", mutant_sequence: run.wtSequence }, ...selected]) {
         if (!row.mutant_sequence)
           throw new Error(`Missing protein sequence: ${row.mutation}`);
         const result = await api.codonOptimize(row.mutant_sequence, [host]);
@@ -1154,6 +1167,7 @@ export function Workbench() {
                 )}
                 <div
                   className="selected-sequence"
+                  ref={sequenceView}
                   aria-label={
                     zh
                       ? "突变残基以深蓝色标记"
