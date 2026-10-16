@@ -102,6 +102,7 @@ export default function App() {
               <div className="teams-contact-list">
                 <a href="mailto:YuzhangLi2281@gmail.com"><strong>Yuzhang Li</strong><span>YuzhangLi2281@gmail.com</span><span aria-hidden="true">↗</span></a>
                 <a href="mailto:3108542350@qq.com"><strong>Kexin Li</strong><span>3108542350@qq.com</span><span aria-hidden="true">↗</span></a>
+                <a href="mailto:zhaoyupu6@gmail.com"><strong>Yupu Zhao</strong><span>zhaoyupu6@gmail.com</span><span aria-hidden="true">↗</span></a>
               </div>
             </section>
             <details className="teams-asset-credits"><summary>{lang==='zh'?'素材来源':'Artwork sources'}</summary><p>Kong et al. · AnewOmni, Fig. 1. Background removed, colour-quantized and vectorized. <a href="https://doi.org/10.64898/2026.03.12.711044" target="_blank" rel="noopener noreferrer">Source ↗</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>. Other molecular decorations use RDKit molecular graphs and the 2FGY structure from the PDB.</p></details>
