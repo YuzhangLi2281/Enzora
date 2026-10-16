@@ -67,7 +67,7 @@ export function useRun(jobId: string | null) {
     const id = jobId;
 
     async function loadRequest(run: RunMeta) {
-      if (requestLoaded) return;
+      if (requestLoaded || !run.stages.some((stage) => stage.index === 0 && stage.finished_at != null)) return;
       try {
         const resolved = JSON.parse(
           await api.readArtifact(id, "00_resolved_request.json"),
