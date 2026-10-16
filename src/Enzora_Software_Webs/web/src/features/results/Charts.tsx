@@ -849,7 +849,7 @@ export function ScoreDistribution({
         </>
       ) : (
         <text x="20" y="49" className="distribution-empty">
-          {zh ? "等待该评分器的预测数据" : "Awaiting scorer predictions"}
+          {zh ? "启动筛选后显示预测分布" : "Predictions appear after screening"}
         </text>
       )}
     </svg>
@@ -884,7 +884,7 @@ export function ScoringWaterfall({ rows, weights, confidence, zh, active }: {
   const leading=samples[Math.min(samples.length-1,Math.floor(p*samples.length))];
   const mean=values.length?values.reduce((sum,c)=>sum+models.reduce((n,m,i)=>n+shares[i]*Number(c[`${m.key}_component`]),0),0)/values.length:null;
   return <div className="scoring-waterfall" data-replay={progress<1}>
-    <div className="waterfall-heading"><strong>{zh?'置信度配平 → 综合得分':'Confidence balance → composite score'}</strong><span>{values.length?`${values.length} ${zh?'条真实预测':'scored candidates'}`:zh?'等待评分分量':'Awaiting score components'}</span></div>
+    <div className="waterfall-heading"><strong>{zh?'各模型如何组成最终得分':'How the models contribute to the final score'}</strong><span>{values.length?`${values.length} ${zh?'条真实预测':'scored candidates'}`:zh?'等待评分分量':'Awaiting score components'}</span></div>
     <svg viewBox="0 0 520 240" role="img" aria-label={zh?'偏好乘可信度归一化后的加权贡献':'Weighted contributions after normalizing preference times confidence'}>
       <defs><clipPath id={`${id}-reveal`}><rect x="0" y="70" width="520" height={p*125}/></clipPath></defs>
       {models.map((m,i)=><g key={m.key}>
@@ -893,7 +893,7 @@ export function ScoringWaterfall({ rows, weights, confidence, zh, active }: {
         <path d={`M${65+i*190},47 C${65+i*190},66 ${42+shares.slice(0,i).reduce((a,b)=>a+b,0)*430},56 ${42+shares.slice(0,i).reduce((a,b)=>a+b,0)*430},67`}
           stroke={m.color} strokeWidth={shares[i]>0?3+shares[i]*12:1} strokeDasharray={shares[i]===0?'3 4':undefined} opacity={shares[i]===0?.3:.8} fill="none"/>
       </g>)}
-      {!samples.length ? <text x="260" y="130" textAnchor="middle">{zh?'真实评分到达后展示贡献曲线':'Contribution curves follow real predictions'}</text> : <g clipPath={`url(#${id}-reveal)`}>
+      {!samples.length ? <text x="260" y="130" textAnchor="middle">{zh?'评分完成后，这里显示各模型对候选得分的贡献':'After screening, compare each model’s share of the score'}</text> : <g clipPath={`url(#${id}-reveal)`}>
         {models.map((m,i)=>{
           const upper=samples.map((s,j)=>`${42+s.parts.slice(0,i+1).reduce((a,b)=>a+b,0)*430},${y(j)}`);
           const lower=[...samples].reverse().map((s,j)=>`${42+s.parts.slice(0,i).reduce((a,b)=>a+b,0)*430},${y(samples.length-1-j)}`);
@@ -904,6 +904,6 @@ export function ScoringWaterfall({ rows, weights, confidence, zh, active }: {
       <text x="42" y="224">0</text><text x="257" y="224" textAnchor="middle">0.5</text><text x="472" y="224" textAnchor="end">1.0</text>
     </svg>
     <div className="waterfall-summary"><span>Σ Wᵢ = {denominator>0?'1.000':'—'}</span><span>{zh?'平均综合分':'Mean composite'} <strong>{mean?.toFixed(3)??'—'}</strong></span></div>
-    <p>{zh?'由上至下为候选顺序；宽度为真实加权贡献。动画为数据回放，不表示计算速度。':'Top to bottom: candidate order. Width: measured weighted contribution. Animation replays data; it does not measure speed.'}</p>
+    <p>{zh?'每一行是一条候选序列，色带越宽，表示该模型贡献的分数越多。动画回放已保存的预测数据。':'Each row is a candidate; wider bands mean a larger contribution to its score. The animation replays saved predictions.'}</p>
   </div>;
 }

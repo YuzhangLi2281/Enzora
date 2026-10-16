@@ -28,7 +28,8 @@ const scorers = [
     key: "activity",
     name: "Phenom",
     field: "activity_log10",
-    label: "log₁₀ kcat",
+    label: "Activity · log₁₀ kcat",
+    labelZh: "活性 · log₁₀ kcat",
     color: "var(--score-activity)",
     stage: 2,
   },
@@ -37,6 +38,7 @@ const scorers = [
     name: "EpHod",
     field: "ph_opt",
     label: "Optimal pH",
+    labelZh: "最适 pH",
     color: "var(--score-ph)",
     stage: 3,
   },
@@ -44,7 +46,8 @@ const scorers = [
     key: "stability",
     name: "UniStab",
     field: "ddg",
-    label: "ΔΔG",
+    label: "Stability change · ΔΔG",
+    labelZh: "稳定性变化 · ΔΔG",
     color: "var(--score-stability)",
     stage: 4,
   },
@@ -399,8 +402,8 @@ export function Workbench() {
                 <h1>Enzora</h1>
                 <p>
                   {zh
-                    ? "自动完成酶突变设计、筛选与优化。"
-                    : "Enabling automated mutation, screening and optimization for enzyme engineering."}
+                    ? "输入起始酶序列和底物，设置要生成多少条突变序列。三个模型共同提出突变，建立下一步用于筛选的候选库。"
+                    : "Enter your enzyme and substrate, then choose how many variants to make. Three models propose mutations to build a library for screening."}
                 </p>
               </div>
             </div>
@@ -641,8 +644,8 @@ export function Workbench() {
                 </h2>
                 <p>
                   {zh
-                    ? "Agent 根据预测证据配平分数；点击下方按钮后才开始筛选。"
-                    : "Agent-supervised score balancing. Start screening below when you are ready."}
+                    ? "预测每条候选的活性、最适 pH 和稳定性。在右侧设置你更看重的性质，助手会参考预测的不确定性，帮助调整最终排序中各项分数的占比。"
+                    : "Predict activity, optimal pH and stability for each candidate. Set your priorities on the right; the Assistant reviews prediction uncertainty to help balance the final ranking."}
                 </p>
               </div>
             </div>
@@ -663,7 +666,7 @@ export function Workbench() {
                       <div className="scorer-name">
                         <h3>{model.name}</h3>
                         <span style={{ color: model.color }}>
-                          {model.label}
+                          {zh ? model.labelZh : model.label}
                         </span>
                         <span className="scorer-state">
                           {completed
@@ -726,7 +729,7 @@ export function Workbench() {
                   <span className="copilot-orb" />
                   <div>
                     <strong>
-                      {zh ? "Agent 决策状态" : "Agent decision state"}
+                      {zh ? "助手正在做什么" : "Assistant review"}
                     </strong>
                     <p>
                       {run.meta?.status === 'failed' || run.meta?.status === 'cancelled'
@@ -745,9 +748,13 @@ export function Workbench() {
                             ? zh
                               ? "已确认配平，正在筛选与生成报告。"
                               : "Balance confirmed. Selecting candidates and preparing the report."
+                            : phase === 2
+                              ? zh
+                                ? "模型正在逐条预测。结果返回后，助手会检查评分与不确定性，提出配平建议。"
+                                : "The models are scoring candidates. The Assistant will review their predictions and uncertainty to suggest a balance."
                             : zh
-                              ? "等待各评分器输出，不将模拟值作为真实预测。"
-                              : "Waiting for measured scorer outputs."}
+                              ? "建库完成后，点击左下角启动筛选；预测结果返回后，助手会检查各模型的评分与不确定性。"
+                              : "Start screening after the library is ready. The Assistant will review the returned predictions and their uncertainty."}
                     </p>
                   </div>
                 </div>
@@ -776,8 +783,8 @@ export function Workbench() {
                   </div>
                   <p className="balance-formula">
                     {zh
-                      ? "有效占比 = 偏好 × 可信度，再归一化"
-                      : "Effective share = normalized preference × confidence"}
+                      ? "偏好表示你有多看重这项性质；降低可信度，就会减少该模型对最终排序的影响。"
+                      : "Preferences set your priorities. Lower confidence gives a predictor less influence on the final ranking."}
                   </p>
                   <div className="balance-bar">
                     {scorers.map((m) => (
@@ -902,7 +909,7 @@ export function Workbench() {
                   <p className="small dim">
                     {zh
                       ? "可信度为配平系数，不是校准概率。目标与阈值仅在启动前设置。"
-                      : "Confidence scales weights; it is not a calibrated probability. Set targets before starting."}
+                      : "Confidence adjusts influence, not a probability. Set targets before screening."}
                   </p>
                 </div>
                 <button
@@ -939,7 +946,7 @@ export function Workbench() {
               />
               <div className="output-intro">
                 <h2>{zh?'突变分布 UMAP 可视化':'Mutation distribution · UMAP'}</h2>
-                <p>{zh?'选择 Top-K 候选突变酶序列。':'Select Top-K candidate mutated enzyme proteins.'}</p>
+                <p>{zh?'拖动或缩放地图，查看候选序列的分布。筛选 Top-K 后，检查蓝色标出的突变位点，并导出报告、蛋白序列或适合目标宿主的编码 DNA。':'Drag or zoom the map to explore your candidates. Select Top-K, inspect the mutations highlighted in blue, and export the report, protein sequences or host-optimized coding DNA.'}</p>
                 {waiting&&phase===2&&<button className="primary output-select" disabled={busy} onClick={next}>{zh?'筛选 Top-K 并生成报告':'Select Top-K & generate report'} ↗</button>}
                 <div className="output-metrics">
                   <div>
