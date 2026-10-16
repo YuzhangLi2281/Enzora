@@ -84,7 +84,8 @@ export function reviewedRequest({ name, sequence, goal, candidate, selection, ai
     activity: { task: 'kcat', ligand_smiles: ligandSmiles },
     sequence_name: name || 'enzyme', sequence, user_request: goal.trim() || null, candidate,
     selection: { ...selection, weights: { ph: selection.weights.ph / total, activity: selection.weights.activity / total, stability: selection.weights.stability / total } },
-    llm: { enabled: aiReady, auto_balance: aiReady, parameter_parsing: false, result_analysis: aiReady, analysis_fail_open: true },
+    // Automatic evidence balancing is enabled by the server policy, not a public run override.
+    llm: { enabled: aiReady, parameter_parsing: false, result_analysis: aiReady, analysis_fail_open: true },
     visualization: { enabled: true, umap: true }, report: { language: lang }, runtime: { force_cpu: forceCpu, phase_control: true },
   };
 }

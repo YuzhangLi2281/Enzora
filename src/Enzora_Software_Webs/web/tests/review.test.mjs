@@ -35,6 +35,7 @@ test('AI review preserves position, activity, stability and pool constraints on 
   assert.equal(request.llm.parameter_parsing, false);
   assert.equal(request.llm.result_analysis, true);
   assert.equal(request.llm.enabled, true);
+  assert.deepEqual(Object.keys(request.llm).sort(), ["analysis_fail_open", "enabled", "parameter_parsing", "result_analysis"]);
   assert.equal(draft.selection.weights.ph, 0.3);
 });
 

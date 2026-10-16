@@ -39,7 +39,6 @@ export interface RunRequest {
   };
   llm: {
     enabled: boolean;
-    auto_balance?: boolean;
     parameter_parsing: boolean;
     result_analysis: boolean;
     analysis_fail_open: boolean;
