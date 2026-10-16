@@ -14,7 +14,7 @@ export const STAGE_LABELS: Record<string, { en: string; zh: string }> = {
   point_mutation_feature_analysis: { en: 'Features & Pareto', zh: '描述符与 Pareto' },
   codon_optimization: { en: 'Codon optimization', zh: '密码子优化' },
   visualize_results: { en: 'Visualize', zh: '可视化' },
-  gemini_result_analysis: { en: 'AI analysis', zh: 'AI 分析' },
+  llm_result_analysis: { en: 'AI analysis', zh: 'AI 分析' },
   write_markdown_report: { en: 'Report', zh: '报告' },
 };
 

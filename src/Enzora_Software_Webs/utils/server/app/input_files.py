@@ -166,7 +166,7 @@ def _bio_records(content: str, format_name: str, override: str | None) -> tuple[
     return entries, []
 
 
-def _parse_sequence_file(filename: str, content: str, *, client: Any = None, model: str = "gemini-2.5-flash",
+def _parse_sequence_file(filename: str, content: str, *, client: Any = None, model: str = "MiniMax-M2.5",
                type_override: str | None = None) -> dict[str, Any]:
     check_size(content)
     suffix = Path(filename.lower()).suffix
@@ -204,7 +204,7 @@ def _parse_sequence_file(filename: str, content: str, *, client: Any = None, mod
 
 
 def read_bioartifact(filename: str, content: str, *, type_override: str | None = None,
-                     client: Any = None, model: str = 'gemini-2.5-flash'):
+                     client: Any = None, model: str = 'MiniMax-M2.5'):
     """Read supported sequence formats into the one BioArtifact schema.
 
     SBOL support covers explicit Sequence objects, not assembly/circuit semantics.
@@ -388,7 +388,7 @@ def export_bioartifact(artifact, format_name: str) -> tuple[str, list[str]]:
     raise ValueError('导出支持 fasta、csv、json、genbank、sbol。')
 
 
-def parse_file(filename: str, content: str, *, client: Any = None, model: str = 'gemini-2.5-flash',
+def parse_file(filename: str, content: str, *, client: Any = None, model: str = 'MiniMax-M2.5',
                type_override: str | None = None) -> dict[str, Any]:
     from Enzora_Agent.core.types import BioArtifact
     suffix = Path(filename.lower()).suffix

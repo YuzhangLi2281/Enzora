@@ -6,7 +6,7 @@ import { useRun } from "../runs/useRun";
 import { useApp } from "../../app/store";
 import { ChatPanel } from "../experiment/ChatPanel";
 import { WorkspaceIntro } from "./WorkspaceIntro";
-import { MutationAtlas, ScoreDistribution } from "../results/Charts";
+import { MutationAtlas, ScoreDistribution, ScoringWaterfall } from "../results/Charts";
 import proteinIllustration from "../../../../../../resource/docs/anewomni-protein.svg";
 import moleculeDecoration from "../../../../../../resource/docs/enzora-molecule-decoration.svg";
 import dnaDecoration from "../../../../../../resource/docs/enzora-dna-decoration.svg";
@@ -71,6 +71,7 @@ export function Workbench() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [exportFormat, setExportFormat] = useState("json");
   const [picked, setPicked] = useState<string | null>(null);
   const [view, setView] = useState(1);
   const [rate, setRate] = useState(0);
@@ -332,29 +333,6 @@ export function Workbench() {
         weights[key] !== runRequest.selection.weights[key] ||
         confidence[key] !== runRequest.selection.confidence?.[key],
     );
-  const statusText = !jobId
-    ? zh
-      ? "等待实验输入"
-      : "Ready for your input"
-    : waiting
-      ? zh
-        ? "阶段已完成 · 等待 Next Process"
-        : "Phase complete · Awaiting Next Process"
-      : run.meta?.status === "success"
-        ? zh
-          ? "本轮运行已完成"
-          : "Run complete"
-        : run.meta?.status === "cancelled"
-          ? zh
-            ? "运行已取消"
-            : "Run cancelled"
-          : run.meta?.status === "failed"
-            ? zh
-              ? "运行失败 · 查看错误提示"
-              : "Run failed · See error details"
-            : zh
-              ? "运行中"
-              : "Running";
   return (
     <>
       <main ref={scroll} id="main-content" className="process-scroll">
@@ -372,20 +350,13 @@ export function Workbench() {
             />
             <div className="section-heading">
               <div>
-                <h1>{zh ? "构建你的酶突变库" : "Build your enzyme library"}</h1>
+                <h1>Enzora</h1>
                 <p>
                   {zh
-                    ? "输入野生型序列与底物，按设定数量与突变阶数构建候选库。"
-                    : "Start with a wild-type sequence and substrate. Set the mutation quota and order."}
+                    ? "自动完成酶突变设计、筛选与优化。"
+                    : "Enabling automated mutation, screening and optimization for enzyme engineering."}
                 </p>
               </div>
-              <span className="stage-status">
-                {isDemo()
-                  ? zh
-                    ? `演示 · ${statusText}`
-                    : `Demo · ${statusText}`
-                  : statusText}
-              </span>
             </div>
             <div className="library-composition">
               <div className="library-controls">
@@ -395,9 +366,8 @@ export function Workbench() {
                   aria-label={zh ? "建库步骤" : "Library views"}
                 >
                   {[
-                    zh ? "实验输入" : "Input",
-                    zh ? "模型与参数" : "Ensemble",
-                    zh ? "突变库" : "Library",
+                    zh ? "输入" : "Input",
+                    zh ? "设置" : "Settings",
                   ].map((label, i) => (
                     <button
                       id={`library-tab-${i}`}
@@ -409,7 +379,7 @@ export function Workbench() {
                       onKeyDown={(e) => {
                         if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
                           const next =
-                            (i + (e.key === "ArrowRight" ? 1 : 2)) % 3;
+                            (i + 1) % 2;
                           setTab(next);
                           document
                             .getElementById(`library-tab-${next}`)
@@ -432,7 +402,7 @@ export function Workbench() {
                   {tab === 0 && (
                     <>
                       <div className="input-heading">
-                        <h2>{zh ? "你的起始序列" : "Your starting point"}</h2>
+                        <h2>{zh ? "输入酶和底物" : "Enter enzyme & substrate"}</h2>
                         {isDemo() && (
                           <button
                             className="text-button"
@@ -502,7 +472,7 @@ export function Workbench() {
                   {tab === 1 && (
                     <>
                       <h2>
-                        {zh ? "定义设计空间" : "Define your design space"}
+                        {zh ? "设置突变库" : "Library settings"}
                       </h2>
                       <label className="field">
                         {zh ? "突变库序列数量" : "Library size"}
@@ -557,33 +527,6 @@ export function Workbench() {
                       </p>
                     </>
                   )}
-                  {tab === 2 && (
-                    <>
-                      <h2>{zh ? "记录每一次生成" : "Every saved sequence"}</h2>
-                      <div className="library-total">
-                        {saved.toLocaleString()}
-                        <small>/ {target.toLocaleString()}</small>
-                      </div>
-                      <p>
-                        {zh
-                          ? "环形进度只映射后端已保存的序列。"
-                          : "The ring tracks sequence records saved by the backend."}
-                      </p>
-                      <div className="library-preview">
-                        {run.rawCandidates.slice(0, 5).map((c) => (
-                          <div key={c.mutation}>
-                            <span>{c.mutation}</span>
-                            <span>{number(c.library_score)}</span>
-                          </div>
-                        ))}
-                      </div>
-                      <p className="small dim">
-                        {zh
-                          ? "模型限制占比来自已保存替换位点的最低 LLR 归因；不是生成模型的因果贡献。"
-                          : "Limiting-model attribution uses the minimum LLR of saved substitutions; it is not causal generation ownership."}
-                      </p>
-                    </>
-                  )}
                 </div>
                 <div className="library-actions">
                   <button
@@ -617,6 +560,8 @@ export function Workbench() {
                 </div>
               </div>
               <WorkspaceIntro
+                runKey={jobId ?? 'idle'}
+                landscape={run.generation.llr_landscape as Parameters<typeof WorkspaceIntro>[0]['landscape']}
                 saved={saved}
                 target={target}
                 running={active && !waiting && phase === 1}
@@ -634,20 +579,6 @@ export function Workbench() {
                 }
               />
             </div>
-            <div className="section-bottom">
-              <span>
-                {zh
-                  ? "建库 → 三评分器 → 优化与导出"
-                  : "Library → Three scorers → Optimized output"}
-              </span>
-              <button
-                className="next-process"
-                disabled={busy || !(waiting && phase === 1)}
-                onClick={next}
-              >
-                Next Process <span>↓</span>
-              </button>
-            </div>
           </section>
           <section
             id="phase-2"
@@ -659,22 +590,15 @@ export function Workbench() {
               <div>
                 <h2>
                   {zh
-                    ? "三项预测，一次配平"
-                    : "Three predictions. Your balance."}
+                    ? "多目标虚拟筛选"
+                    : "Multi-objective virtual screening"}
                 </h2>
                 <p>
                   {zh
-                    ? "Phenom 活性、EpHod 最适 pH、UniStab 稳定性，按偏好与可信度共同排序。"
-                    : "Rank Phenom activity, EpHod optimal pH and UniStab stability by preference × confidence."}
+                    ? "Agent 根据预测证据配平分数；点击下方按钮后才开始筛选。"
+                    : "Agent-supervised score balancing. Start screening below when you are ready."}
                 </p>
               </div>
-              <button
-                className="primary"
-                disabled={busy || !(waiting && phase === 1)}
-                onClick={next}
-              >
-                {zh ? "启动虚拟筛选" : "Start Screening"} ↗
-              </button>
             </div>
             <div className="screening-composition">
               <div className="scorer-stack">
@@ -686,7 +610,7 @@ export function Workbench() {
                         typeof n === "number" && Number.isFinite(n),
                     );
                   const completed = run.meta?.stages.some(
-                    (s) => s.index === model.stage,
+                    (s) => s.index === model.stage && s.finished_at != null,
                   );
                   return (
                     <article className="scorer-row" key={model.key}>
@@ -742,6 +666,7 @@ export function Workbench() {
                     </article>
                   );
                 })}
+                <ScoringWaterfall rows={run.rawCandidates} weights={weights} confidence={confidence} zh={zh} active={view===2}/>
                 <details className="phenom-model-details">
                   <summary>{zh ? "Phenom · 模型架构与不确定性" : "Phenom · Architecture & uncertainty"}</summary>
                   <p>{zh
@@ -943,11 +868,13 @@ export function Workbench() {
               </div>
             </div>
             <div className="section-bottom">
-              <span>
-                {zh
-                  ? "Phenom 是唯一酶活性评分器"
-                  : "Phenom is the sole activity predictor"}
-              </span>
+<button
+                className="primary"
+                disabled={busy || !(waiting && phase === 1)}
+                onClick={next}
+              >
+                {zh ? "启动虚拟筛选" : "Start Screening"} ↗
+              </button>
               <button
                 className="next-process"
                 disabled={busy || !(waiting && phase === 2)}
@@ -971,25 +898,8 @@ export function Workbench() {
                 zh={zh}
               />
               <div className="output-intro">
-                <h2>
-                  {zh ? (
-                    <>
-                      选出 <span className="nowrap">Top-K</span>，<br />
-                      准备表达
-                    </>
-                  ) : (
-                    <>
-                      Top-K for
-                      <br />
-                      expression
-                    </>
-                  )}
-                </h2>
-                <p>
-                  {zh
-                    ? "在全库嵌入图中定位候选，比较预测指标，再按宿主偏好优化同义密码子。"
-                    : "Locate candidates across the library, compare predictions, then optimize synonymous host codons."}
-                </p>
+                <h2>{zh?'突变分布 UMAP 可视化':'Mutation distribution · UMAP'}</h2>
+                <p>{zh?'选择 Top-K 候选突变酶序列。':'Select Top-K candidate mutated enzyme proteins.'}</p>
                 <div className="output-metrics">
                   <div>
                     <strong>
@@ -1060,40 +970,16 @@ export function Workbench() {
                     {zh ? "候选" : "candidates"}
                   </h3>
                   <div>
-                    <button
-                      className="text-button"
-                      disabled={!selected.length}
-                      onClick={() =>
-                        downloadText(
-                          serializeCsv(selected, [
-                            "mutation",
-                            "final_score",
-                            "activity_log10",
-                            "ph_opt",
-                            "ddg",
-                            "mutant_sequence",
-                          ]),
-                          "enzora-topk.csv",
-                          "text/csv;charset=utf-8",
-                        )
-                      }
-                    >
-                      CSV ↗
-                    </button>
-                    <button
-                      className="text-button"
-                      disabled={!selected.length}
-                      onClick={() =>
-                        downloadText(
-                          selected
-                            .map((c) => `>${c.mutation}\n${c.mutant_sequence}`)
-                            .join("\n"),
-                          "enzora-topk.fasta",
-                        )
-                      }
-                    >
-                      FASTA ↗
-                    </button>
+                    <select aria-label={zh?'结果导出格式':'Result export format'} value={exportFormat} onChange={e=>setExportFormat(e.target.value)}>
+                      {['json','csv','fasta','genbank','sbol'].map(format=><option key={format} value={format}>{format.toUpperCase()}</option>)}
+                    </select>
+                    <button className="text-button" disabled={!selected.length||busy} onClick={()=>void perform(async()=>{
+                      const bioartifact={schema:'enzora.bioartifact/1' as const, records:selected.map(c=>{if(typeof c.mutant_sequence!=='string')throw new Error('Missing candidate sequence');return {id:c.mutation,name:c.mutation,type:'protein' as const,sequence:c.mutant_sequence};}),
+                        predictions:{candidates:selected},metadata:{job_id:jobId,selection:run.meta?.applied_selection,reference_protein:run.wtSequence},data:{}};
+                      const result=await api.exportArtifact(bioartifact,exportFormat);
+                      downloadText(result.content,`enzora-topk.${exportFormat==='genbank'?'gb':exportFormat==='sbol'?'xml':exportFormat}`);
+                      if(result.warnings.length)setNotice(result.warnings.join(' '));
+                    })}>{zh?'导出结果':'Export results'} ↗</button>
                   </div>
                 </div>
                 <div className="top-candidate-list">
@@ -1190,17 +1076,6 @@ export function Workbench() {
                 </div>
               </div>
             </div>
-            <a
-              className="illustration-credit"
-              href="https://doi.org/10.64898/2026.03.12.711044"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {zh
-                ? "蛋白装饰示意：Kong 等 · AnewOmni Fig. 1 · CC BY 4.0"
-                : "Decorative protein illustration: Kong et al. · AnewOmni Fig. 1 · CC BY 4.0"}{" "}
-              ↗
-            </a>
           </section>
         </div>
       </main>
@@ -1247,6 +1122,7 @@ export function Workbench() {
         </div>
       )}
       <ChatPanel
+        sequence={sequence}
         jobId={jobId}
         onChange={run.retry}
         phase={phase}

@@ -5,12 +5,12 @@ from pathlib import Path
 
 import pandas as pd
 
-from .gemini import GeminiClient
+from .gemini import GeminiClient, MiniMaxClient
 
 
 _SYSTEM_PROMPTS = {
     "zh": r"""
-你是 FixedEnzymeAgent 的结果分析模块。请只根据用户给出的结构化预测和确定性点突变描述进行分析，不得发明任何数值。
+你是 Enzora 的结果分析模块。请只根据用户给出的结构化预测和确定性点突变描述进行分析，不得发明任何数值。
 
 模型与描述符含义：
 - PHENOM: activity_log10 is predicted log10(kcat / s^-1) for the supplied ligand. sigma_log10 is nominal uncertainty, not a calibrated confidence interval.
@@ -30,7 +30,7 @@ _SYSTEM_PROMPTS = {
 建议结构：整体结论；优先候选；理化与 BLOSUM62 解读；多目标/Pareto 权衡；实验验证顺序；局限性。
 """.strip(),
     "en": r"""
-You are the result-analysis module of FixedEnzymeAgent. Analyze only the supplied structured predictions and deterministic point-mutation descriptors. Never invent values.
+You are the result-analysis module of Enzora. Analyze only the supplied structured predictions and deterministic point-mutation descriptors. Never invent values.
 
 Meaning of the inputs:
 - PHENOM activity_log10 is predicted log10(kcat / s^-1), with sigma_log10 as nominal model uncertainty; it is not experimental activity.
@@ -57,7 +57,7 @@ def analyze_results(
     cfg: dict,
     ranked_csv: Path,
     wt_ph: float,
-    client: GeminiClient,
+    client: GeminiClient | MiniMaxClient,
 ) -> str:
     df = pd.read_csv(ranked_csv)
     # Never send raw WT/mutant protein sequences to the third-party LLM.
@@ -104,12 +104,12 @@ def analyze_results(
     }
     llm_cfg = cfg["llm"]
     instruction = (
-        "请分析下面的 FixedEnzymeAgent JSON 结果。所有数值只能引用 JSON 中已有值：\n"
+        "请分析下面的 Enzora JSON 结果。所有数值只能引用 JSON 中已有值：\n"
         if language == "zh"
-        else "Analyze the following FixedEnzymeAgent JSON. You may only quote numeric values present in the JSON:\n"
+        else "Analyze the following Enzora JSON. You may only quote numeric values present in the JSON:\n"
     )
     return client.text(
-        model=llm_cfg.get("analysis_model", "gemini-2.5-pro"),
+        model=llm_cfg["analysis_model"],
         system_prompt=_SYSTEM_PROMPTS[language],
         user_prompt=instruction + json.dumps(payload, ensure_ascii=False, indent=2),
         max_tokens=int(llm_cfg.get("max_tokens", 4000)),

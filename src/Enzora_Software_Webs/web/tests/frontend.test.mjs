@@ -426,7 +426,7 @@ test("manual demo phases wait for explicit Next; 1000 unique sequences and local
   assert.ok(Math.abs(balanced.effective_weights.activity - 1 / 6) < 1e-12);
   assert.match(
     (await api.chat("explain", job_id, null)).message,
-    /no Gemini request/,
+    /no MiniMax request/,
   );
   await api.advanceRun(job_id, 3);
   h.finish();
@@ -453,23 +453,20 @@ test("copilot is available before a run and keeps returned codon artifacts", asy
     fetchImpl: async (url, init) => {
       sent = { url, body: JSON.parse(init.body) };
       return new Response(
-        JSON.stringify({
-          message: "Ready",
-          codon_rows: [{ mutation: "M1A", optimized_cds_with_stop: "GCGTAA" }],
-        }),
-        { status: 200 },
+        ': assistant working\n\ndata: '+JSON.stringify({event:'complete',data:{message:'Ready',codon_rows:[{mutation:'M1A',optimized_cds_with_stop:'GCGTAA'}]}})+'\n\n',
+        { status: 200,headers:{"Content-Type":"text/event-stream"} },
       );
     },
   });
   const { api } = h.load("shared/api/client");
   const response = await api.chat("Explain PheNom", null, null);
-  assert.equal(sent.url, "/api/chat");
+  assert.equal(sent.url, "/api/chat/stream");
   assert.equal(sent.body.job_id, null);
   assert.equal(response.codon_rows[0].optimized_cds_with_stop, "GCGTAA");
   const local = harness().load("shared/api/client");
   assert.match(
     (await local.api.chat("Explain", null, null)).message,
-    /no Gemini request/,
+    /no MiniMax request/,
   );
 });
 test("demo host export rejects unknown residues and supports Bacillus explicitly", async () => {
@@ -550,4 +547,20 @@ test("workspace login adds bearer headers to REST and streaming progress without
   assert.equal(events[0].event, "scheduler");
   assert.ok(calls.every(({options}) => options.headers.Authorization === "Bearer test-workspace-code"));
   assert.ok(calls.every(({url}) => !url.includes("test-workspace-code")));
+});
+
+
+test('Assistant stream reports a provider failure instead of hanging or inventing a reply', async()=>{
+ const h=harness({query:'?demo=0',fetchImpl:async()=>new Response(': heartbeat\n\ndata: '+JSON.stringify({event:'error',data:{status:502,message:'MiniMax HTTP 429'}})+'\n\n')});
+ await assert.rejects(()=>h.load('shared/api/client').api.chat('Hello',null,null),/MiniMax HTTP 429/);
+});
+
+test('Sequence and Atlas tools send explicit inputs only to the Enzora API',async()=>{
+ const sent=[];
+ const h=harness({query:'?demo=0',fetchImpl:async(url,init)=>{sent.push([url,JSON.parse(init.body)]);return new Response(JSON.stringify({source:'ESM Atlas Alpha'}));}});
+ const {api}=h.load('shared/api/client');
+ await api.atlas('P01308',false);
+ await api.sequenceTool('prepare_mature_protein','ACDE',{start:2,end:4});
+ assert.equal(sent[0][0],'/api/tools/atlas');assert.deepEqual(sent[0][1],{query:'P01308',similar:false});
+ assert.equal(sent[1][0],'/api/tools/sequence');assert.deepEqual(sent[1][1],{tool:'prepare_mature_protein',sequence:'ACDE',arguments:{start:2,end:4}});
 });

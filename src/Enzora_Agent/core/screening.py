@@ -338,14 +338,16 @@ def reference_score_components(candidates, reference: dict, policy: dict) -> lis
         raise ValueError('Unsupported WT-reference scoring policy')
     for field in ('weights', 'scales', 'uncertainty_scales'):
         values = policy[field]
-        if set(values) != keys or any(type(v) not in (int,float) or not math.isfinite(v) or v <= 0 for v in values.values()):
+        if set(values) != keys or any(type(v) not in (int,float) or not math.isfinite(v) or v < 0 or (field != 'weights' and v == 0) for v in values.values()):
             raise ValueError(f'Invalid reference policy {field}')
     weights = policy['weights']
-    if not math.isclose(sum(weights.values()), 1., abs_tol=1e-8) or weights['kcat'] < .4 or weights['kcat'] < max(weights['ph'],weights['stability']):
-        raise ValueError('Reference policy must preserve normalized kcat primary weights')
-    target = float(policy['target_ph'])
+    if not math.isclose(sum(weights.values()), 1., abs_tol=1e-8):
+        raise ValueError('Reference policy weights must sum to one')
+    target = policy['target_ph']
+    if target is not None:
+        target = float(target)
     wt_mu, wt_ph = float(reference['activity_log10']), float(reference['ph_opt'])
-    if not all(math.isfinite(v) for v in (target,wt_mu,wt_ph)) or not 0 <= target <= 14 or not 0 <= wt_ph <= 14:
+    if not all(math.isfinite(v) for v in (wt_mu,wt_ph)) or (target is not None and (not math.isfinite(target) or not 0 <= target <= 14)) or not 0 <= wt_ph <= 14:
         raise ValueError('Invalid fixed WT reference/target')
     for name,bounds in policy.get('allowed_scale_bounds',{}).items():
         if name not in keys or len(bounds)!=2 or not bounds[0] <= policy['scales'][name] <= bounds[1]:
@@ -353,7 +355,7 @@ def reference_score_components(candidates, reference: dict, policy: dict) -> lis
     output = []
     for c in candidates:
         gains = {'kcat': float(c.activity_log10)-wt_mu,
-                 'ph': abs(wt_ph-target)-abs(float(c.ph_opt)-target),
+                 'ph': abs(wt_ph-target)-abs(float(c.ph_opt)-target) if target is not None else 0.,
                  'stability': -float(c.ddg)}
         uncertainties = {'kcat': c.activity_sigma_log10, 'ph': c.ph_uncertainty,
                          'stability': c.stability_uncertainty}
@@ -368,3 +370,45 @@ def reference_score_components(candidates, reference: dict, policy: dict) -> lis
             components[name] = .5 + reliability*(raw-.5)
         output.append(components)
     return output
+
+
+def freeze_reference_policy(candidates: list[Candidate], selection: dict, reference: dict) -> dict:
+    """Freeze first-library scales once; later pools reuse this exact policy.
+
+    Resolution floors are explicit administrator choices in native units, not
+    filled predictions. Every uncertainty must be measured and nonnegative.
+    """
+    import statistics
+    template = selection['score_policy']
+    if template.get('calibration') != 'first_pool_q10_q90':
+        reference_score_components(candidates, reference, template)
+        return template
+    target = selection['target_ph']
+    def quantile(values, fraction):
+        values = sorted(values)
+        index = (len(values)-1)*fraction
+        lower = int(index)
+        return values[lower] + (values[min(lower+1,len(values)-1)]-values[lower])*(index-lower)
+    policy = {'method': template['method'], 'target_ph': target, 'weights': {},
+              'scales': {}, 'uncertainty_scales': {}, 'calibration_source': 'first_scored_library',
+              'calibration_count': len(candidates)}
+    fields = {'kcat': ('activity_log10','activity_sigma_log10','activity'),
+              'ph': ('ph_opt','ph_uncertainty','ph'), 'stability': ('ddg','stability_uncertainty','stability')}
+    total = sum(selection['weights'].values())
+    for name, (field, uncertainty, key) in fields.items():
+        values = [getattr(c,field) for c in candidates]
+        us = [getattr(c,uncertainty) for c in candidates]
+        if not values or any(type(v) not in (int,float) or not math.isfinite(v) for v in values+us) or any(u < 0 for u in us):
+            raise ValueError(f'Complete measured {name} predictions and uncertainties are required')
+        if name == 'ph' and target is not None:
+            values = [abs(reference['ph_opt']-target)-abs(v-target) for v in values]
+        floor = template['resolution_scales'][name]
+        if type(floor) not in (int,float) or not math.isfinite(floor) or floor <= 0:
+            raise ValueError('Reference resolution scales must be finite and positive')
+        policy['scales'][name] = max(floor,quantile(values,.9)-quantile(values,.1))
+        policy['uncertainty_scales'][name] = statistics.median(us)
+        if policy['uncertainty_scales'][name] <= 0:
+            raise ValueError('A zero uncertainty median needs an explicit positive uncertainty scale')
+        policy['weights'][name] = selection['weights'][key]/total
+    reference_score_components(candidates, reference, policy)
+    return policy

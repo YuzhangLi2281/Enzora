@@ -286,7 +286,7 @@ class JobManager:
         env['PYTHONPATH'] = source_dir + os.pathsep + env.get('PYTHONPATH', '')
         env['PYTHONUNBUFFERED'] = '1'
         if handle.api_key:
-            env["GEMINI_API_KEY"] = handle.api_key
+            env[{"minimax": "MINIMAX_API_KEY", "gemini": "GEMINI_API_KEY"}[handle.config["llm"]["provider"]]] = handle.api_key
         kwargs: dict[str, Any] = {}
         if os.name == "posix":
             kwargs["start_new_session"] = True  # allows killpg on cancel

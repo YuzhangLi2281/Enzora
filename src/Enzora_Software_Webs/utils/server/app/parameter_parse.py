@@ -104,6 +104,9 @@ def default_parameters(candidate: dict[str, Any], selection: dict[str, Any]) -> 
     default_weights.update({k: v for k, v in supplied_weights.items() if k in default_weights})
     notes: list[str] = []
     out_selection["weights"] = default_weights
+    for key in ("confidence","score_policy","reference"):
+        if key in selection:
+            out_selection[key]=copy.deepcopy(selection[key])
     _validate_numbers({"candidate": out_candidate, "selection": out_selection})
     if out_selection["target_ph"] is None and float(default_weights["ph"]) > 0:
         raise ValueError("A positive pH weight requires an explicit target pH")

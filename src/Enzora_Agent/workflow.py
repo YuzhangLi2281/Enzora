@@ -30,7 +30,7 @@ STAGES = [
     "point_mutation_feature_analysis",
     "codon_optimization",
     "visualize_results",
-    "gemini_result_analysis",
+    "llm_result_analysis",
     "write_markdown_report",
 ]
 
@@ -67,13 +67,9 @@ class FixedEnzymeWorkflow:
         if errors:
             raise RuntimeError("模型/路径预检失败:\n- " + "\n- ".join(errors))
 
-    def _gemini_client(self, cfg: dict):
-        from .llm.gemini import GeminiClient
-
-        return GeminiClient(
-            api_key=self.api_key,
-            base_url=cfg["llm"].get("base_url", "https://generativelanguage.googleapis.com/v1beta"),
-        )
+    def _llm_client(self, cfg: dict):
+        from .llm.gemini import create_client
+        return create_client(cfg['llm'], self.api_key)
 
     def _phase(self, run_dir: Path, phase: int, cfg: dict) -> None:
         if phase > 1 and cfg['runtime']['phase_control']:
@@ -105,10 +101,10 @@ class FixedEnzymeWorkflow:
             if bool(llm_cfg.get("enabled", False)) and bool(llm_cfg.get("parameter_parsing", True)):
                 from .llm.parameter_parser import parse_user_request
 
-                client = self._gemini_client(cfg)
+                client = self._llm_client(cfg)
                 cfg, parsed_request = parse_user_request(cfg, client=client)
                 if self.print_llm:
-                    print("\n[Gemini 参数解析]")
+                    print("\n[LLM 参数解析]")
                     print(json.dumps(parsed_request, ensure_ascii=False, indent=2))
                 report["stages"].append({
                     "stage": STAGES[0],
@@ -120,7 +116,7 @@ class FixedEnzymeWorkflow:
                 report["stages"].append({"stage": STAGES[0], "enabled": False})
 
             # Codon optimization is triggered deterministically from the original user request.
-            # It is intentionally independent of the LLM so Gemini cannot invent a host species.
+            # It is intentionally independent of the LLM so LLM cannot invent a host species.
             codon_request = resolve_codon_optimization_request(cfg.get("user_request"))
 
             write_json(
@@ -235,17 +231,64 @@ class FixedEnzymeWorkflow:
                 candidate.stability_uncertainty = ddg_details[candidate.mutation]['uncertainty']
             report["stages"].append({"stage": STAGES[4], "count": len(candidates)})
 
-            # Save real scores for live distributions and user-controlled balancing.
+            # Persist the same fixed-reference components used by server and browser.
+            if cfg['selection'].get('score_policy') is not None:
+                from .core.screening import freeze_reference_policy
+                reference = cfg['selection'].get('reference') or {'activity_log10': activity['WT']['mu_log10'], 'ph_opt': wt_ph}
+                cfg['selection']['score_policy'] = freeze_reference_policy(candidates, cfg['selection'], reference)
+                cfg['selection']['reference'] = reference
+                write_json(run_dir / 'scoring_reference.json', {
+                    'reference': reference, 'score_policy': cfg['selection']['score_policy']})
+            if llm_cfg['enabled'] and llm_cfg.get('auto_balance', False):
+                from .core.screening import summarize_scorer_evidence
+                from .llm.gemini import MiniMaxClient
+                from .tools.builtin import BALANCE_TOOL_SCHEMA
+                client = self._llm_client(cfg)
+                if not isinstance(client, MiniMaxClient):
+                    raise ValueError('Automatic native tool balancing requires MiniMax')
+                evidence = summarize_scorer_evidence([c.to_dict() for c in candidates])
+                previous = copy.deepcopy(cfg['selection'])
+                applied = []
+                def apply_balance(name, arguments):
+                    if name != 'balance_scores' or set(arguments) != {'weights','confidence'}:
+                        raise ValueError('Invalid balancing tool call')
+                    if arguments['weights'] != previous['weights']:
+                        raise ValueError('Automatic balancing must preserve user preferences')
+                    weights = balance_weights(arguments['weights'],arguments['confidence'])
+                    cfg['selection']['confidence'] = arguments['confidence']
+                    applied.append(weights)
+                    return {'effective_weights': weights, 'confidence': arguments['confidence']}
+                decision = client.tool_loop(model=llm_cfg['parameter_model'], max_tokens=llm_cfg['max_tokens'],
+                    tools=[BALANCE_TOOL_SCHEMA], execute=apply_balance,
+                    system_prompt="""You control Enzora scorer reliability. Call balance_scores exactly once.
+Preserve all user preference weights exactly. Use measured uncertainty evidence and the frozen
+uncertainty scales to choose confidence controls in [0,1]; explain each choice and units.
+Compare uncertainty only after normalization by its own model scale. Unknown uncertainty is
+unknown, never high/low confidence. These are reliability controls, not calibrated probabilities.
+Never claim a higher validated accuracy. After tool output, briefly explain the applied balance.""",
+                    user_prompt=json.dumps({'selection':previous,'scorer_evidence':evidence},ensure_ascii=False))
+                if len(applied) != 1:
+                    raise ValueError('Assistant must apply exactly one confidence balance')
+                with (run_dir / 'llm_balance_decisions.jsonl').open('a',encoding='utf-8') as stream:
+                    stream.write(json.dumps({'provider':'minimax','model':llm_cfg['parameter_model'],
+                        'reason':decision['message'],'previous_selection':previous,
+                        'scorer_evidence':evidence,'calls':decision['calls']},ensure_ascii=False,allow_nan=False)+'\n')
+            selection_file = run_dir / 'selection.yaml'
+            if not selection_file.exists():
+                selection_file.write_text(yaml.safe_dump(cfg['selection']))
+            else:
+                # Carry confirmed user changes into the freshly measured reference policy.
+                accepted = yaml.safe_load(selection_file.read_text())
+                accepted['score_policy'] = cfg['selection']['score_policy']
+                if 'reference' in cfg['selection']:
+                    accepted['reference'] = cfg['selection']['reference']
+                cfg['selection'] = accepted
+                selection_file.write_text(yaml.safe_dump(accepted))
+            rank_candidates(candidates, cfg['selection'])
             write_candidates_csv(run_dir / 'scorer_predictions.csv', candidates)
             self._phase(run_dir, 3, cfg)
-            selection_file = run_dir / 'selection.yaml'
-            if selection_file.is_file():
-                cfg['selection'] = yaml.safe_load(selection_file.read_text())
-                validate_candidate_and_selection(cfg, strict_ph_target=True)
-            if cfg['selection'].get('score_policy') is not None:
-                cfg['selection']['reference'] = {'activity_log10': activity['WT']['mu_log10'], 'ph_opt': wt_ph}
-                write_json(run_dir / 'scoring_reference.json', {
-                    'reference': cfg['selection']['reference'], 'score_policy': cfg['selection']['score_policy']})
+            cfg['selection'] = yaml.safe_load(selection_file.read_text())
+            validate_candidate_and_selection(cfg, strict_ph_target=True)
             # Final selection uses the last explicitly accepted phase-2 controls.
             effective_weights = balance_weights(cfg['selection']['weights'], cfg['selection']['confidence'])
             write_json(run_dir / 'balancing.json', {'preferences': cfg['selection']['weights'],
@@ -318,18 +361,18 @@ class FixedEnzymeWorkflow:
                 "figures": [str(p) for p in figure_paths],
             })
 
-            # 8) Gemini now also receives deterministic mutation descriptors/Pareto state.
+            # 8) LLM now also receives deterministic mutation descriptors/Pareto state.
             analysis_text = (
-                "Gemini 结果分析未启用。"
+                "LLM 结果分析未启用。"
                 if report_language == "zh"
-                else "Gemini result analysis is disabled."
+                else "LLM result analysis is disabled."
             )
             analysis_error: str | None = None
             if bool(llm_cfg.get("enabled", False)) and bool(llm_cfg.get("result_analysis", True)):
                 from .llm.result_analyzer import analyze_results
 
                 try:
-                    client = self._gemini_client(cfg)
+                    client = self._llm_client(cfg)
                     analysis_text = analyze_results(
                         cfg=cfg,
                         ranked_csv=ranked_csv,
@@ -337,7 +380,7 @@ class FixedEnzymeWorkflow:
                         client=client,
                     )
                     if self.print_llm:
-                        print("\n[Gemini 结果分析]")
+                        print("\n[LLM 结果分析]")
                         print(analysis_text)
                 except Exception as exc:
                     analysis_error = f"{type(exc).__name__}: {exc}"
@@ -345,12 +388,12 @@ class FixedEnzymeWorkflow:
                         raise
                     if report_language == "zh":
                         analysis_text = (
-                            "Gemini 结果分析调用失败，但三个预测模型、排序、点突变分析与可视化结果已经保留。\n"
+                            "LLM 结果分析调用失败，但三个预测模型、排序、点突变分析与可视化结果已经保留。\n"
                             f"错误: {analysis_error}"
                         )
                     else:
                         analysis_text = (
-                            "Gemini result analysis failed, but the three-model predictions, ranking, "
+                            "LLM result analysis failed, but the three-model predictions, ranking, "
                             "point-mutation analysis and visualizations were retained.\n"
                             f"Error: {analysis_error}"
                         )

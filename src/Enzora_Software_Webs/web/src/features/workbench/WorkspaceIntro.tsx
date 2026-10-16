@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import dpoIcon from "../../../../../../resource/models/proteindpo.svg";
 import enzymeIcon from "../../../../../../resource/models/enzgfm.svg";
 import vesmIcon from "../../../../../../resource/models/vesm3.svg";
@@ -87,6 +87,8 @@ export function WorkspaceIntro({
   zh,
   model,
   contributions,
+  landscape,
+  runKey,
 }: {
   saved: number;
   target: number;
@@ -95,6 +97,8 @@ export function WorkspaceIntro({
   zh: boolean;
   model?: string;
   contributions?: Record<string, number>;
+  runKey?: string;
+  landscape?: { bins: number[]; frames: {saved:number; counts:Record<string,number>; density:Record<string,number[]>}[] };
 }) {
   const [compact, setCompact] = useState(
     () => matchMedia("(max-width:1000px)").matches,
@@ -107,25 +111,40 @@ export function WorkspaceIntro({
   }, []);
   const id = useId().replace(/:/g, "");
   const progress = target > 0 ? Math.min(1, saved / target) : 0;
-  const [history, setHistory] = useState<
-    { saved: number; counts: Record<string, number> }[]
-  >([]);
+  const element = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+  const [replay, setReplay] = useState(1);
+  const replayed = useRef('');
+  const frameCount = landscape?.frames.length ?? 0;
   useEffect(() => {
-    setHistory((previous) => {
-      if (!contributions) return [];
-      const last = previous[previous.length - 1];
-      if (last?.saved === saved) return previous;
-      const sample = { saved, counts: { ...contributions } };
-      return last && last.saved < saved
-        ? [...previous, sample].slice(-32)
-        : [sample];
-    });
-  }, [contributions, saved]);
-  const attributionTotal = contributions
-    ? Object.values(contributions).reduce((a, b) => a + b, 0)
-    : 0;
+    const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), {threshold:.2});
+    if (element.current) observer.observe(element.current);
+    return () => observer.disconnect();
+  }, []);
+  useEffect(() => {
+    if (!visible) {setReplay(1);return;}
+    if (!frameCount || saved < target || replayed.current === runKey) return;
+    replayed.current = runKey ?? '';
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { setReplay(1); return; }
+    setReplay(0);
+    const start = performance.now();
+    let handle = 0;
+    const tick = (now:number) => {
+      const value = Math.min(1,(now-start)/5000);
+      setReplay(value);
+      if (value<1) handle=requestAnimationFrame(tick);
+    };
+    handle=requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(handle);
+  }, [visible,frameCount,saved,target,runKey]);
+  const frameIndex = Math.min(frameCount-1, Math.floor(Math.max(0,(replay*5000-800)/3400)*frameCount));
+  const frame = landscape?.frames[Math.max(0,frameIndex)];
+  const counts = frame?.counts ?? contributions;
+  const attributionTotal = counts ? Object.values(counts).reduce((a,b)=>a+b,0) : 0;
+  const densityMax = landscape ? Math.max(.001,...landscape.frames.flatMap(f=>Object.values(f.density).flat())) : 1;
+  const colors = ['var(--score-activity)','var(--score-ph)','var(--score-stability)'];
   return (
-    <div className={`library-engine ${running ? "is-running" : ""}`}>
+    <div ref={element} className={`library-engine ${running ? "is-running" : ""}`}>
       <div className="engine-flow">
         <div className="model-nodes">
           {generators.map((entry, index) => (
@@ -214,12 +233,13 @@ export function WorkspaceIntro({
               <stop offset=".55" stopColor="var(--ring-mid)" />
               <stop offset="1" stopColor="var(--ring-end)" />
             </linearGradient>
+            <marker id={`${id}-flow-arrow`} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M1 1 9 5 1 9" fill="none" stroke="var(--text-dim)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></marker>
           </defs>
           {[105, 235, 365].map((y, i) => (
             <g key={y}>
               <path
-                className="engine-wire"
-                d={`M270 ${y} C345 ${y}, 300 235, 430 235`}
+                className="engine-wire" markerEnd={`url(#${id}-flow-arrow)`}
+                d={`M270 ${y} C350 ${y}, 355 235, 418 235`}
               />
               {running && rate > 0 && (
                 <path
@@ -228,15 +248,15 @@ export function WorkspaceIntro({
                     animationDuration: `${Math.max(0.65, 4 / Math.log2(rate + 2))}s`,
                     animationDelay: `${i * -0.5}s`,
                   }}
-                  d={`M270 ${y} C345 ${y}, 300 235, 430 235`}
+                  d={`M270 ${y} C350 ${y}, 355 235, 418 235`}
                 />
               )}
             </g>
           ))}
-          <circle cx="546" cy="235" r="166" className="engine-outer" />
-          <circle cx="546" cy="235" r="140" className="engine-track" />
+          <circle cx="570" cy="235" r="166" className="engine-outer" />
+          <circle cx="570" cy="235" r="140" className="engine-track" />
           <circle
-            cx="546"
+            cx="570"
             cy="235"
             r="140"
             fill="none"
@@ -245,159 +265,44 @@ export function WorkspaceIntro({
             strokeLinecap="round"
             strokeDasharray={Math.PI * 280}
             strokeDashoffset={Math.PI * 280 * (1 - progress)}
-            transform="rotate(-90 546 235)"
+            transform="rotate(-90 570 235)"
             className="engine-progress"
           />
-          <text x="546" y="226" textAnchor="middle" className="engine-count">
+          <text x="570" y="226" textAnchor="middle" className="engine-count">
             {saved.toLocaleString()}
           </text>
-          <text x="546" y="260" textAnchor="middle" className="engine-label">
+          <text x="570" y="260" textAnchor="middle" className="engine-label">
             {zh ? "条序列已保存" : "sequences saved"}
           </text>
-          <text x="546" y="296" textAnchor="middle" className="engine-caption">
+          <text x="570" y="296" textAnchor="middle" className="engine-caption">
             {Math.round(progress * 100)}% · {target.toLocaleString()}{" "}
             {zh ? "目标" : "target"}
           </text>
         </svg>
       </div>
-      <div className="model-contributions">
-        <div>
-          <span>{zh ? "模型限制占比" : "Limiting-model attribution"}</span>
-          <span>
-            {contributions
-              ? zh
-                ? "已保存替换位点"
-                : "Saved substitutions"
-              : zh
-                ? "等待归因数据"
-                : "Awaiting attribution"}
-          </span>
-        </div>
+      <div className="model-contributions" data-replay={replay < 1}>
+        <div><strong>{zh ? '酶突变库构建的 PLM LLR 分布' : 'PLM LLR score distribution for enzyme mutation database construction'}</strong>
+          <span role="status">{!frame ? ''
+            : replay<.16 ? 'Syncing with VESM…' : replay<.84 ? (zh?'扫描已保存替换':'Scanning saved substitutions') : `N=${saved} · ${zh?'归因完成':'Attribution complete'}`}</span></div>
         <div className="contribution-track">
-          {contributions &&
-            attributionTotal > 0 &&
-            Object.entries(contributions).map(([name, count], i) => (
-              <span
-                key={name}
-                style={{
-                  width: `${(count / attributionTotal) * 100}%`,
-                  background: [
-                    "var(--score-activity)",
-                    "var(--score-ph)",
-                    "var(--score-stability)",
-                  ][i],
-                }}
-                title={`${name}: ${count.toFixed(1)}`}
-              />
-            ))}
+          {counts && attributionTotal>0 && generators.map((g,i)=><span key={g.id} style={{width:`${counts[g.id]/attributionTotal*100}%`,background:colors[i]}} />)}
         </div>
-        {attributionTotal > 0 && (
-          <div className="contribution-legend">
-            {generators.map((entry, i) => (
-              <span key={entry.id}>
-                <i
-                  style={{
-                    background: [
-                      "var(--score-activity)",
-                      "var(--score-ph)",
-                      "var(--score-stability)",
-                    ][i],
-                  }}
-                />
-                {entry.name}{" "}
-                <strong>
-                  {(
-                    (contributions![entry.id] / attributionTotal) *
-                    100
-                  ).toFixed(1)}
-                  %
-                </strong>
-              </span>
-            ))}
-          </div>
-        )}
-        {history.length > 1 && (
-          <svg
-            className="contribution-history"
-            viewBox="0 0 400 38"
-            preserveAspectRatio="none"
-            role="img"
-            aria-label={
-              zh
-                ? "已保存序列的累计模型限制占比变化"
-                : "Cumulative limiting-model shares across saved records"
-            }
-          >
-            {generators.map((entry, i) => {
-              const edge = (
-                sample: (typeof history)[number],
-                upper: boolean,
-              ) => {
-                const total = Object.values(sample.counts).reduce(
-                  (a, b) => a + b,
-                  0,
-                );
-                return (
-                  38 -
-                  (generators
-                    .slice(0, i + (upper ? 1 : 0))
-                    .reduce((sum, model) => sum + sample.counts[model.id], 0) /
-                    total) *
-                    38
-                );
-              };
-              const upper = history.map(
-                (sample, j) =>
-                  `${(j / (history.length - 1)) * 400},${edge(sample, true)}`,
-              );
-              const lower = [...history]
-                .reverse()
-                .map(
-                  (sample, j) =>
-                    `${((history.length - 1 - j) / (history.length - 1)) * 400},${edge(sample, false)}`,
-                );
-              return (
-                <path
-                  key={entry.id}
-                  d={`M${upper.join(" L")} L${lower.join(" L")} Z`}
-                  fill={
-                    [
-                      "var(--score-activity)",
-                      "var(--score-ph)",
-                      "var(--score-stability)",
-                    ][i]
-                  }
-                  opacity=".75"
-                />
-              );
-            })}
-          </svg>
-        )}
-        <p>
-          {zh
-            ? "统计各替换位点上给出最低校准 LLR 的模型；并列均分，不代表因果贡献。"
-            : "Share of minimum calibrated LLR per substitution; ties split equally. Not causal contribution."}
-        </p>
-      </div>
-      <div className="engine-caption-row">
-        <span>
-          {zh
-            ? "三个生成模型 · 一个突变库"
-            : "Three generators. One mutation library."}
-        </span>
-        <span>
-          {model
-            ? `${generators.find((entry) => entry.id === model)?.name ?? model} · ${zh ? "正在计算" : "Computing"}`
-            : saved >= target && target > 0
-              ? zh
-                ? "目标数量已保存"
-                : "Target saved"
-              : rate > 0
-                ? `${rate.toFixed(0)} seq/s`
-                : zh
-                  ? "等待保存记录"
-                  : "Awaiting saved records"}
-        </span>
+        <div className="contribution-legend">{generators.map((g,i)=><span key={g.id}><i style={{background:colors[i]}}/>{g.name} <strong>{attributionTotal>0 ? `${(counts![g.id]/attributionTotal*100).toFixed(1)}%` : '—'}</strong></span>)}</div>
+        {frame && landscape ? <svg className="llr-landscape" viewBox="0 0 560 142" role="img" aria-label={zh?'真实已保存替换的校准 LLR 分布':'Calibrated LLR distributions of saved substitutions'}>
+          <defs>{generators.map((g,i)=><linearGradient key={g.id} id={`${id}-density-${i}`} x1="0" y1="0" x2="0" y2="1"><stop stopColor={colors[i]} stopOpacity=".55"/><stop offset="1" stopColor={colors[i]} stopOpacity=".04"/></linearGradient>)}</defs>
+          {generators.map((g,i)=>{
+            const values=frame.density[g.id];
+            if(!values) return null;
+            const points=values.map((v,j)=>`${32+j/(values.length-1)*500},${111-v/densityMax*82}`);
+            return <g key={g.id} className="llr-density" style={{opacity:replay<.16?replay/.16:1}}>
+              <path d={`M32,111 L${points.join(' L')} L532,111Z`} fill={`url(#${id}-density-${i})`}/>
+              <path d={`M${points.join(' L')}`} fill="none" stroke={colors[i]} strokeWidth="2.2" strokeLinejoin="round"/>
+            </g>;
+          })}
+          <text x="32" y="131">{landscape.bins[0].toFixed(1)}</text><text x="532" y="131" textAnchor="end">{landscape.bins[landscape.bins.length-1].toFixed(1)}</text>
+          <text x="280" y="137" textAnchor="middle">{zh?'校准 LLR · 已保存替换的前缀回放':'Calibrated LLR · saved-substitution replay'}</text>
+        </svg> : <div className="llr-waiting" aria-hidden="true"></div>}
+        <details className="llr-method"><summary>{zh?'如何读图':'How to read this plot'}</summary><p>{zh?'各替换取最低校准 LLR，平局均分。5 秒回放展示已保存数据，不代表推理耗时。':'Minimum calibrated LLR per substitution; ties split equally. The 5-second replay shows saved data, not inference time.'}</p></details>
       </div>
     </div>
   );

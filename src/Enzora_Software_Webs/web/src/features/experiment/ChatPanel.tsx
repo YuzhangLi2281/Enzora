@@ -2,6 +2,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, isDemo } from "../../shared/api/client";
 import { downloadText, serializeCsv } from "../../shared/lib/download";
+import type { AtlasRecord,ProteinStructure } from "../../shared/api/contracts";
+import { ProteinViewer } from "../../shared/ui/PlotWrap";
 import { rememberRequest } from "../runs/requestStorage";
 import { useApp } from "../../app/store";
 
@@ -9,22 +11,31 @@ type Message = {
   role: "agent" | "user";
   text: string;
   codons?: Record<string, unknown>[];
+  structure?: ProteinStructure;
+  atlas?: AtlasRecord;
+  prepared?: {start:number;end:number;sequence:string};
+  tools?: {tool:string}[];
+  fasta?: {id:string;sequence:string}[];
 };
 export function ChatPanel({
   jobId,
   onChange,
   phase = 1,
   status,
+  sequence,
 }: {
   jobId: string | null;
   onChange: () => void;
   phase?: number;
   status?: string;
+  sequence?: string;
 }) {
   const { lang, sessionId, runRequest, setRunRequest } = useApp();
   const zh = lang === "zh";
   const [open, setOpen] = useState(false),
     [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+  const [size,setSize]=useState<{width:number;height:number}|null>(null);
+  const resizing=useRef<{x:number;y:number;width:number;height:number}|null>(null);
   const [messages, setMessages] = useState<Message[]>([]),
     [input, setInput] = useState("");
   const [busy, setBusy] = useState(false),
@@ -93,11 +104,11 @@ export function ChatPanel({
     setFailedMessage("");
     if (!retry) setMessages((m) => [...m, { role: "user", text }]);
     try {
-      const response = await api.chat(text, jobId, sessionId);
+      const response = await api.chat(text, jobId, sessionId, jobId?undefined:sequence);
       if (token !== version.current) return;
       setMessages((m) => [
         ...m,
-        { role: "agent", text: response.message, codons: response.codon_rows },
+        { role: "agent", text: response.message, codons: response.codon_rows, structure:response.structure, atlas:response.atlas, prepared:response.prepared_sequence, tools:response.tool_calls, fasta:response.fasta_records },
       ]);
       if (response.tool_result && runRequest && jobId) {
         const updated = {
@@ -144,11 +155,8 @@ export function ChatPanel({
     <aside
       ref={panel}
       className={`copilot ${open ? "expanded" : ""} ${busy ? "is-busy" : ""}`}
-      style={
-        position
-          ? { left: position.x, top: position.y, right: "auto", bottom: "auto" }
-          : undefined
-      }
+      style={{...(position?{left:position.x,top:position.y,right:'auto',bottom:'auto'}:{}),
+        ...(open&&size?{width:size.width,height:size.height}:{})}}
       aria-label="Enzora Assistant"
       onKeyDown={(e) => {
         if (e.key === "Escape" && open) {
@@ -254,7 +262,7 @@ export function ChatPanel({
                   : "Your design companion"}
           </span>
         </div>
-        <span className="copilot-mode">{isDemo() ? "Demo" : "Gemini"}</span>
+        <span className="copilot-mode">{isDemo() ? "Demo" : "MiniMax"}</span>
         <button
           ref={toggle}
           className="copilot-toggle"
@@ -294,6 +302,14 @@ export function ChatPanel({
                   : "Ask a question before starting"}
             </span>
           </div>
+          <div className="assistant-quick-tools" role="group" aria-label={zh?'助手工具':'Assistant tools'}>
+            {[
+              {label:'ESM Atlas',path:'M3 9a6 6 0 1 0 12 0A6 6 0 0 0 3 9m10 4 5 5',prompt:jobId||sequence?(zh?'从 ESM Atlas 查询当前蛋白，展示已存储的结构、蛋白信息和来源链接。':'Query ESM Atlas for the current protein. Show the stored structure, metadata and source link.'):(zh?'我想查询 ESM Atlas，请先让我提供 UniProt 编号、Atlas hash 或蛋白序列。':'I want to query ESM Atlas. Ask me for a UniProt accession, Atlas hash or protein sequence.')},
+              {label:zh?'结构':'Structure',path:'M3 5l7-3 7 4-1 9-8 3-6-5zm7-3-2 9m9-5-9 5m8 4-8-4m-6 2 6-2',prompt:zh?'查看当前 WT 输入结构，不运行新预测。':'Inspect the supplied WT structure; do not run a new prediction.'},
+              {label:zh?'裁剪区段':'Trim region',path:'M3 4a2 2 0 1 0 4 0 2 2 0 0 0-4 0m0 12a2 2 0 1 0 4 0 2 2 0 0 0-4 0M7 5l11 13M7 15 18 2',prompt:zh?'我想提取成熟蛋白区段，请先告诉我需要指定哪些编号。':'I want to extract a mature protein region. Ask me which inclusive residue interval to use.'},
+              {label:zh?'密码子':'Codons',path:'M5 2c0 8 10 8 10 16M15 2c0 8-10 8-10 16M6 4h8M8 8h4M8 12h4M6 16h8',prompt:zh?'为当前蛋白优化密码子；请先询问表达宿主。':'Optimize codons for the current protein. Ask which expression host to use first.'},
+            ].map(action=><button type="button" key={action.label} disabled={busy} onClick={()=>void send(action.prompt)} title={action.label}><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d={action.path} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg><span>{action.label}</span></button>)}
+          </div>
           <div
             className="copilot-messages"
             role="log"
@@ -332,6 +348,19 @@ export function ChatPanel({
                   {message.role === "user" ? (zh ? "你" : "You") : "Enzora"}
                 </span>
                 <p>{message.text}</p>
+                {!!message.tools?.length && <div className="assistant-tools-used">{message.tools.map((call,index)=><span key={index}>{call.tool.replace(/_/g,' ')} ✓</span>)}</div>}
+                {message.fasta && <button className="copilot-export" onClick={()=>downloadText(message.fasta!.map(r=>`>${r.id}\n${r.sequence}`).join('\n'),'enzora-assistant-sequences.fasta')}>{zh?'导出序列':'Export sequences'} FASTA ↗</button>}
+                {message.prepared && <button className="copilot-export" onClick={()=>downloadText(`>WT_region_${message.prepared!.start}-${message.prepared!.end}\n${message.prepared!.sequence}\n`,'enzora-mature-region.fasta')}>{zh?'导出指定成熟区段':'Export specified mature region'} {message.prepared.start}–{message.prepared.end} ↗</button>}
+                {message.atlas && <div className="atlas-record-card"><div className="atlas-record-heading"><strong>ESM Atlas</strong><span>Alpha API</span></div>
+                  {message.atlas.metadata && <><h4>{String(message.atlas.metadata.protein_name??message.atlas.metadata.accession??message.atlas.metadata.protein_hash)}</h4><dl>{['accession','organism','sequence_length','mean_plddt','ptm'].filter(key=>message.atlas!.metadata![key]!=null).map(key=><div key={key}><dt>{key.replace(/_/g,' ')}</dt><dd>{String(message.atlas!.metadata![key])}</dd></div>)}</dl>
+                    {message.atlas.metadata.function!=null&&<p>{String(message.atlas.metadata.function)}</p>}
+                    {Array.isArray(message.atlas.metadata.sae_features)&&<details><summary>{zh?'SAE 模型特征':'SAE model features'}</summary>{(message.atlas.metadata.sae_features as {feature_index:number;label:string;description:string;value:number}[]).map(f=><article className="atlas-feature" key={f.feature_index}><strong>{f.label}</strong><span>{f.value.toFixed(3)}</span><p>{f.description}</p></article>)}</details>}
+                  </>}
+                  {message.atlas.similar_proteins?.map(hit=><button disabled={busy} key={hit.protein_hash} onClick={()=>void send(`Show ESM Atlas protein ${hit.protein_hash}. Retrieve its stored record, not a new prediction.`)}>{hit.protein_name??hit.protein_accession} · {hit.similarity_score.toFixed(3)} ↗</button>)}
+                  <div className="atlas-record-actions"><a href={message.atlas.source_url} target="_blank" rel="noopener noreferrer">{zh?'数据来源':'Data source'} ↗</a>{message.atlas.metadata?.sequence&&<button onClick={()=>downloadText(`>${String(message.atlas!.metadata!.accession??message.atlas!.metadata!.protein_hash)}\n${message.atlas!.metadata!.sequence}\n`,'esm-atlas-protein.fasta')}>FASTA ↓</button>}{message.structure?.pdb&&<button onClick={()=>downloadText(message.structure!.pdb!,'esm-atlas-structure.pdb')}>PDB ↓</button>}</div>
+                  <p className="atlas-source-note">{zh?'数据库中的预测结构与模型特征，不代表实验验证。':'Stored predicted structures and model features; experimental validation is separate.'}</p>
+                </div>}
+                {message.structure && <figure className="assistant-structure"><ProteinViewer structure={message.structure}/><figcaption>{message.structure.source} · {zh?'拖动旋转，滚轮缩放':'Drag to rotate · scroll to zoom'}</figcaption></figure>}
                 {message.codons && (
                   <button
                     className="copilot-export"
@@ -364,8 +393,8 @@ export function ChatPanel({
                       ? "准备演示回复"
                       : "Preparing demo reply"
                     : zh
-                      ? "正在调用 Gemini"
-                      : "Calling Gemini"}
+                      ? "正在调用 MiniMax"
+                      : "Calling MiniMax"}
                 </p>
               </div>
             )}
@@ -428,8 +457,8 @@ export function ChatPanel({
               <span>
                 {isDemo()
                   ? zh
-                    ? "模拟回复 · 未调用 Gemini"
-                    : "Simulated replies · No Gemini calls"
+                    ? "模拟回复 · 未调用 MiniMax"
+                    : "Simulated replies · No MiniMax calls"
                   : zh
                     ? "Enter 发送 · Shift+Enter 换行"
                     : "Enter to send · Shift+Enter for a new line"}
@@ -454,6 +483,18 @@ export function ChatPanel({
           </form>
         </div>
       )}
+      {open && <button type="button" className="assistant-resize" aria-label={zh?'拖动调整助手大小；方向键也可调整':'Resize assistant by dragging or with arrow keys'}
+        onKeyDown={event=>{
+          const delta:Record<string,[number,number]>={ArrowLeft:[-24,0],ArrowRight:[24,0],ArrowUp:[0,-24],ArrowDown:[0,24]};
+          if(!delta[event.key])return;event.preventDefault();
+          const box=panel.current!.getBoundingClientRect();
+          setPosition({x:box.left,y:box.top});
+          setSize({width:Math.max(300,Math.min(innerWidth-box.left-8,box.width+delta[event.key][0])),height:Math.max(300,Math.min(innerHeight-box.top-8,box.height+delta[event.key][1]))});
+        }}
+        onPointerDown={event=>{const box=panel.current!.getBoundingClientRect();setPosition({x:box.left,y:box.top});resizing.current={x:event.clientX,y:event.clientY,width:box.width,height:box.height};event.currentTarget.setPointerCapture(event.pointerId);}}
+        onPointerMove={event=>{const r=resizing.current;if(!r)return;const box=panel.current!.getBoundingClientRect();
+          setSize({width:Math.max(Math.min(300,innerWidth-16),Math.min(innerWidth-box.left-8,r.width+event.clientX-r.x)),height:Math.max(300,Math.min(innerHeight-box.top-8,r.height+event.clientY-r.y))});}}
+        onPointerUp={()=>{resizing.current=null;}} onPointerCancel={()=>{resizing.current=null;}}><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 15l9-9M11 15l4-4" stroke="currentColor" strokeWidth="2"/></svg></button>}
     </aside>
   );
 }

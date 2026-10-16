@@ -322,3 +322,19 @@ export interface PlanPreview {
   source?: string;
   notes?: string[];
 }
+
+export interface ProteinStructure {
+  source: string;
+  sequence: string;
+  pdb?: string;
+  points: {residue:number;x:number;y:number;z:number}[];
+}
+
+export interface AtlasRecord {
+  source: string;
+  source_url: string;
+  fold_on_miss?: boolean;
+  metadata?: Record<string,unknown> & {sequence?:string;protein_hash?:string};
+  structure?: ProteinStructure;
+  similar_proteins?: {protein_hash:string;protein_accession:string;similarity_score:number;protein_name?:string;sequence_length?:number}[];
+}

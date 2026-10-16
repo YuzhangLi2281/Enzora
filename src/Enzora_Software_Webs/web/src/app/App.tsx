@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, Navigate, Route, Routes } from 'react-router-dom';
 import { Header } from './Header';
+import iddlabLogo from '../../../../../resource/models/iddlab-logo.svg';
+import thetaLogo from '../../../../../resource/models/theta-logo.svg';
 import enzoraLogo from '../../../../../resource/models/enzora-logo.svg';
 import { Workbench } from '../features/workbench/Workbench';
 import { Wizard } from '../features/experiment/Wizard';
@@ -69,20 +71,13 @@ export default function App() {
                 <p className="teams-project">Tongji-China · Enzora</p>
                 <h1>Teams</h1>
                 <p>{lang === 'zh'
-                  ? 'Enzora 是同济团队酶工程项目的软件工作区，连接突变库设计、多目标筛选与实验准备。这里集中提供项目与团队资源入口。'
-                  : 'Enzora is the software workspace of the Tongji-China enzyme-engineering project. It connects mutation-library design, multi-objective screening and experimental preparation.'}</p>
+                  ? '连接酶设计、计算筛选与实验准备。'
+                  : 'Connecting enzyme design, computational screening and experimental preparation.'}</p>
               </div>
             </section>
-            <section className="teams-resources" aria-labelledby="teams-repositories">
-              <h2 id="teams-repositories">{lang === 'zh' ? '项目仓库' : 'Project repositories'}</h2>
-              <div className="teams-resource-list">
-                <a href="https://github.com/YuzhangLi2281/Enzora" target="_blank" rel="noopener noreferrer">
-                  <div><strong>Enzora</strong><p>{lang === 'zh' ? 'Agent 工作流、模型适配与软件文档。仓库访问可能需要权限。' : 'Agent workflow, model adapters and software documentation. Repository access may require permission.'}</p></div><span aria-hidden="true">↗</span>
-                </a>
-                <a href="https://github.com/YuzhangLi2281/Phenom.git" target="_blank" rel="noopener noreferrer">
-                  <div><strong>Phenom</strong><p>{lang === 'zh' ? 'Phenom 模型仓库入口，访问可能需要权限。' : 'Phenom model repository. Access may require permission.'}</p></div><span aria-hidden="true">↗</span>
-                </a>
-              </div>
+            <section className="teams-about" aria-label={lang==='zh'?'项目介绍':'About the project'}>
+              <article><h2>Enzora</h2><p>{lang==='zh'?'把三模型突变库构建、基于预测证据的多目标筛选和宿主编码设计连接为一个可检查、可导出的工作流。':'Connects three-model mutation-library construction, evidence-informed multi-objective screening and host-specific DNA design in one inspectable workflow.'}</p></article>
+              <article><h2>Phenom</h2><p>{lang==='zh'?'从蛋白序列和底物分子图构建可解释的酶–底物交互指纹，通过原生 Gaussian head 预测动力学参数及其不确定性。':'Builds interpretable enzyme–substrate interaction fingerprints from protein sequences and molecular graphs. Native Gaussian heads predict kinetic parameters and their uncertainty.'}</p></article>
             </section>
             <section className="teams-resources" aria-labelledby="teams-wiki">
               <h2 id="teams-wiki">Tongji-China Wiki</h2>
@@ -96,6 +91,13 @@ export default function App() {
                 </a>
               </div>
             </section>
+            <section className="teams-acknowledgment" aria-labelledby="teams-ack"><div><h2 id="teams-ack">Acknowledgment</h2><p>{lang==='zh'?'感谢研究指导与项目支持。可横向滚动查看。':'Research guidance and project support. Scroll horizontally to explore.'}</p></div>
+              <div className="acknowledgment-track" tabIndex={0} aria-label={lang==='zh'?'致谢机构，支持横向滚动':'Acknowledged groups; scroll horizontally'}>
+                <a href="https://github.com/Intelligent-Drug-Discovery-Lab" target="_blank" rel="noopener noreferrer"><img src={iddlabLogo} alt="Intelligent Drug Discovery Lab" width="92" height="92"/><div><h3>IDDLab</h3><p>{lang==='zh'?'感谢在研究方向与科学方法上的指导。':'For research guidance and scientific advice.'}</p></div><span aria-hidden="true">↗</span></a>
+                <a href="https://www.thetateam.net/" target="_blank" rel="noopener noreferrer"><img src={thetaLogo} alt="Theta Team · AI + Medicine" width="184" height="92"/><div><h3>Theta Team</h3><p>{lang==='zh'?'感谢研究交流与项目支持。':'For research collaboration and project support.'}</p></div><span aria-hidden="true">↗</span></a>
+              </div>
+            </section>
+            <p className="teams-note"><a href="https://doi.org/10.64898/2026.03.12.711044" target="_blank" rel="noopener noreferrer">Decorative protein illustration: Kong et al. · AnewOmni Fig. 1 · CC BY 4.0 ↗</a></p>
             <nav className="teams-workspace-links" aria-label={lang === 'zh' ? '工作区管理' : 'Workspace utilities'}>
               <Link to="/workbench">{lang === 'zh' ? '返回工作区' : 'Back to Workspace'} <span aria-hidden="true">↗</span></Link>
               <Link to="/history">{lang === 'zh' ? '运行记录' : 'History'}</Link>

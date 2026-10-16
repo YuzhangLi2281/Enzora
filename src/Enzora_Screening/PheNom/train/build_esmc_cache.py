@@ -14,7 +14,7 @@ from transformers import PreTrainedTokenizerFast
 SCRIPT_DIR = Path(__file__).resolve().parent
 CODEBASE_DIR = SCRIPT_DIR.parent
 WORKSPACE_DIR = CODEBASE_DIR.parent
-ESM_CODE_DIR = WORKSPACE_DIR / "esm"
+ESM_CODE_DIR = Path(os.environ.get("PHENOM_ESM_SOURCE", WORKSPACE_DIR / "esm"))
 sys.path.insert(0, str(CODEBASE_DIR))
 sys.path.insert(0, str(ESM_CODE_DIR))
 
@@ -23,7 +23,7 @@ from utils.protein_init import pro_res_table, replace_non_standard_residues, seq
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Build PHENOME protein graphs from ESMC embeddings and attention.")
+    parser = argparse.ArgumentParser(description="Build Phenom protein graphs from ESMC embeddings and attention.")
     parser.add_argument("--protein-sequence-map-csv", type=Path, nargs="+", required=True)
     parser.add_argument("--protein-map-key-column", default="Protein")
     parser.add_argument("--protein-map-sequence-column", default="Sequence")

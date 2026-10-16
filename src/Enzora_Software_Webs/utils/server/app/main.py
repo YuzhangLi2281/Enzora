@@ -2,7 +2,7 @@
 
 The main process never imports torch or model weights — scientific models run
 in subprocesses (see jobs.py). The web frontend talks only to this API; all
-external network access (UniProt/NCBI/AlphaFold/Kazusa/Gemini) happens here.
+external network access (UniProt/NCBI/AlphaFold/Kazusa/MiniMax) happens here.
 """
 from __future__ import annotations
 

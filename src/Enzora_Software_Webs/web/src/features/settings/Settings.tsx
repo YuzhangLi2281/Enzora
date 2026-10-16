@@ -1,4 +1,4 @@
-/** Settings: model paths (server-side), Gemini config, API key session,
+/** Settings: model paths (server-side), MiniMax config, API key session,
  *  runtime defaults. The API key lives only in server memory. */
 
 import { useEffect, useState } from 'react';
@@ -99,7 +99,7 @@ export function Settings() {
             </div>
 
             <div style={{ marginBottom: 12 }}>
-              <div className="small dim" style={{ marginBottom: 6 }}>Gemini</div>
+              <div className="small dim" style={{ marginBottom: 6 }}>MiniMax</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <input style={{ flex: 2, minWidth: 200 }} value={String(draft.llm.base_url ?? '')} onChange={(e) => setLlm('base_url', e.target.value)} />
                 <select aria-label={lang === 'zh' ? '参数模型' : 'Parameter model'} style={{ width: 'auto' }} value={String(draft.llm.parameter_model ?? '')} onChange={(e) => setLlm('parameter_model', e.target.value)}>
@@ -114,10 +114,10 @@ export function Settings() {
             </div>
 
             <div className="muted-box" style={{ marginBottom: 12 }}>
-              <div className="small dim" style={{ marginBottom: 6 }}>{lang === 'zh' ? 'Gemini API 配置' : 'Gemini API configuration'}</div>
-              <p className="small dim">{lang === 'zh' ? '自动读取服务端环境变量或 server/.env 中的 GEMINI_API_KEY，读取成功后自动显示掩码。需要更换时可设置临时会话密钥。' : 'Automatically reads GEMINI_API_KEY from the server environment or server/.env and shows a masked configured value. You can replace it with a temporary session key.'}</p>
+              <div className="small dim" style={{ marginBottom: 6 }}>{lang === 'zh' ? 'MiniMax API 配置' : 'MiniMax API configuration'}</div>
+              <p className="small dim">{lang === 'zh' ? '自动读取服务端环境变量或 server/.env 中的 MINIMAX_API_KEY，读取成功后自动显示掩码。需要更换时可设置临时会话密钥。' : 'Automatically reads MINIMAX_API_KEY from the server environment or server/.env and shows a masked configured value. You can replace it with a temporary session key.'}</p>
               <div style={{ display: 'flex', gap: 8 }}>
-                <input aria-label={lang === 'zh' ? 'Gemini 密钥' : 'Gemini API key'} type="password" autoComplete="off" value={showConfiguredKey ? '••••••••••••' : apiKey} readOnly={showConfiguredKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-…" />
+                <input aria-label={lang === 'zh' ? 'MiniMax 密钥' : 'MiniMax API key'} type="password" autoComplete="off" value={showConfiguredKey ? '••••••••••••' : apiKey} readOnly={showConfiguredKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-…" />
                 {showConfiguredKey ? <button onClick={() => setReplacingKey(true)} disabled={busy}>{lang === 'zh' ? '更换密钥' : 'Replace key'}</button> : <button onClick={() => void storeKey()} disabled={!apiKey.trim() || busy}>{lang === 'zh' ? '设置' : 'Set key'}</button>}
                 {replacingKey && <button className="ghost" disabled={busy} onClick={() => { setReplacingKey(false); setApiKey(''); }}>{lang === 'zh' ? '取消' : 'Cancel'}</button>}
               </div>

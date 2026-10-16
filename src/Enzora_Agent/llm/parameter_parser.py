@@ -4,7 +4,7 @@ import copy
 from typing import Any
 
 from ..config import validate_candidate_and_selection
-from .gemini import GeminiClient
+from .gemini import GeminiClient, MiniMaxClient
 
 
 SYSTEM_PROMPT = r"""
@@ -67,7 +67,7 @@ def _merge_non_null(
 def parse_user_request(
     cfg: dict[str, Any],
     *,
-    client: GeminiClient,
+    client: GeminiClient | MiniMaxClient,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     request = str(cfg.get("user_request") or "").strip()
     if not request:
@@ -83,7 +83,7 @@ def parse_user_request(
     }
 
     parsed = client.json_object(
-        model=llm_cfg.get("parameter_model", "gemini-2.5-flash"),
+        model=llm_cfg["parameter_model"],
         system_prompt=SYSTEM_PROMPT,
         user_prompt=(
             "用户需求如下：\n"
@@ -103,7 +103,7 @@ def parse_user_request(
     selection_src = parsed.get("selection") or {}
 
     if not isinstance(candidate_src, dict) or not isinstance(selection_src, dict):
-        raise ValueError("Gemini 参数 JSON 中 candidate/selection 必须是 object")
+        raise ValueError("LLM 参数 JSON 中 candidate/selection 必须是 object")
 
     # ------------------------------------------------------------
     # 强制保护 candidate.top_k
@@ -145,7 +145,7 @@ def parse_user_request(
     weights_src = selection_src.get("weights") or {}
     if not isinstance(weights_src, dict):
         raise ValueError(
-            "Gemini 参数 JSON 中 selection.weights 必须是 object"
+            "LLM 参数 JSON 中 selection.weights 必须是 object"
         )
 
     for key in ["ph", "activity", "stability"]:

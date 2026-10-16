@@ -1214,7 +1214,7 @@ export const demo = {
       resolved_candidate: resolvedCandidate,
       resolved_selection: resolvedSelection,
       diff,
-      notes: ["演示建议使用模拟参数，没有调用 Gemini。"],
+      notes: ["演示建议使用模拟参数，没有调用 MiniMax。"],
       explicit_fields: [],
       suggested_fields: [
         "selection.target_ph",
@@ -1283,11 +1283,11 @@ export const demo = {
       requested_capabilities: capabilities,
       initial_artifacts: initialArtifacts,
       rationale: useLlm
-        ? `演示 Gemini 方案：${request || "综合比较活性、pH 和稳定性"}`
+        ? `演示 MiniMax 方案：${request || "综合比较活性、pH 和稳定性"}`
         : "演示基础方案：按工具输入依赖安排步骤。",
       source: "demo",
       preview_only: true,
-      notes: ["演示规划使用本地模拟数据，没有调用 Gemini 或运行模型。"],
+      notes: ["演示规划使用本地模拟数据，没有调用 MiniMax 或运行模型。"],
       steps,
     };
   },

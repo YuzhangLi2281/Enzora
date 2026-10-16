@@ -1,5 +1,4 @@
-"""Optional Gemini integration for requirement parsing and result analysis."""
+"""Configured LLM clients for interpretation, tool use and analysis."""
+from .gemini import GeminiClient, MiniMaxClient, create_client
 
-from .gemini import GeminiClient
-
-__all__ = ["GeminiClient"]
+__all__ = ["GeminiClient", "MiniMaxClient", "create_client"]

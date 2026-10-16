@@ -41,7 +41,17 @@ def tools() -> list[dict[str, Any]]:
             registry.discover([root])
         except Exception:
             continue  # a broken plug-in must not take down the catalog
-    return registry.catalog()
+    import os
+    from Enzora_Agent.tools.base import ToolSpec
+    output=registry.catalog()
+    for name,description,capability,ready in [
+        ('prepare_mature_protein','Extract an explicitly specified inclusive residue interval; no cleavage-site prediction','sequence_region',True),
+        ('inspect_structure','View the supplied WT structure after exact sequence matching','structure_view',True),
+        ('esmfold2','Biohub ESMFold2 structure prediction API','structure_prediction',bool(os.environ.get('BIOHUB_API_TOKEN'))),
+    ]:
+        spec=ToolSpec(name,'1.0',description,(capability,),('protein_sequence',),('prepared_sequence' if name=='prepare_mature_protein' else 'structure',))
+        output.append({**spec.to_dict(),'health':{'available':ready,'details':[] if ready else ['BIOHUB_API_TOKEN not configured']}})
+    return output
 
 
 @router.post("/health/check-paths")

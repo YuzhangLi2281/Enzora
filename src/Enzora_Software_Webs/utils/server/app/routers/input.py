@@ -53,12 +53,12 @@ def classify(payload: ClassifyBody) -> dict[str, Any]:
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(status_code=502, detail="Gemini 输入识别失败，请检查服务端 API 配置、网络及模型名称后重试。") from exc
+        raise HTTPException(status_code=502, detail="MiniMax 输入识别失败，请检查服务端 API 配置、网络及模型名称后重试。") from exc
 
 
 def _input_client(api_key: str | None, session_id: str | None, type_override: str | None = None):
     settings = load_settings()
-    model = settings["llm"].get("parameter_model", "gemini-2.5-flash")
+    model = settings["llm"].get("parameter_model", "MiniMax-M2.5")
     key = (api_key or "").strip() or get_key(session_id)
     if not key or type_override:
         return None, model
@@ -81,7 +81,7 @@ def input_file(payload: InputFileBody) -> dict[str, Any]:
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(status_code=502, detail="文件识别失败，请核对格式、输入类型和 Gemini 配置后重试。") from exc
+        raise HTTPException(status_code=502, detail="文件识别失败，请核对格式、输入类型和 MiniMax 配置后重试。") from exc
 
 
 @router.post("/translate")

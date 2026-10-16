@@ -141,15 +141,15 @@ def provider_message(exc: Exception) -> str:
         seen.add(id(current))
         status = getattr(current, "status_code", None)
         if status in (401, 403):
-            return "Gemini 认证失败，请核对服务端 API Key 和账户权限。"
+            return "MiniMax 认证失败，请核对服务端 API Key 和账户权限。"
         if status == 429:
-            return "Gemini 请求额度或频率受限，请检查账户余额并稍后重试。"
+            return "MiniMax 请求额度或频率受限，请检查账户余额并稍后重试。"
         if status == 404:
-            return "Gemini 模型或接口地址不可用，请核对设置中的模型名称和 Base URL。"
+            return "MiniMax 模型或接口地址不可用，请核对设置中的模型名称和 Base URL。"
         name = type(current).__name__.lower()
         if "timeout" in name:
-            return "Gemini 工作流规划请求超时，请检查服务器网络并重试。"
+            return "MiniMax 工作流规划请求超时，请检查服务器网络并重试。"
         if "connection" in name:
-            return "无法连接 Gemini，请检查服务器网络和 Base URL。"
+            return "无法连接 MiniMax，请检查服务器网络和 Base URL。"
         current = current.__cause__ or current.__context__
-    return "Gemini 工作流规划调用失败，请核对服务端 API 配置、模型名称和网络后重试。"
+    return "MiniMax 工作流规划调用失败，请核对服务端 API 配置、模型名称和网络后重试。"

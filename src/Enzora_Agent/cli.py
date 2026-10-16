@@ -19,10 +19,11 @@ def _resolve_api_key(args, cfg: dict) -> str | None:
         return None
     if getattr(args, "api_key", None):
         return args.api_key
-    if os.environ.get("GEMINI_API_KEY"):
-        return os.environ["GEMINI_API_KEY"]
+    key_name = {"minimax": "MINIMAX_API_KEY", "gemini": "GEMINI_API_KEY"}[cfg["llm"]["provider"]]
+    if os.environ.get(key_name):
+        return os.environ[key_name]
     if getattr(args, "ask_api_key", False):
-        return getpass.getpass("Gemini API key: ")
+        return getpass.getpass(f"{cfg['llm']['provider']} API key: ")
     return None
 
 
@@ -43,28 +44,28 @@ def _apply_run_overrides(args, cfg: dict) -> None:
 def _add_run_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--request",
-        help="自然语言筛选目标；提供后自动启用 Gemini 参数解析",
+        help="自然语言筛选目标；提供后自动启用 MiniMax 参数解析",
     )
     parser.add_argument(
         "--api-key",
-        help="Gemini API key（会进入 shell history；更推荐环境变量或 --ask-api-key）",
+        help="MiniMax API key（会进入 shell history；更推荐环境变量或 --ask-api-key）",
     )
     parser.add_argument(
         "--ask-api-key",
         action="store_true",
-        help="在终端安全交互输入 Gemini API key，不回显",
+        help="在终端安全交互输入 MiniMax API key，不回显",
     )
-    parser.add_argument("--enable-llm", action="store_true", help="强制启用 Gemini")
-    parser.add_argument("--disable-llm", action="store_true", help="本次运行关闭 Gemini")
+    parser.add_argument("--enable-llm", action="store_true", help="强制启用 MiniMax")
+    parser.add_argument("--disable-llm", action="store_true", help="本次运行关闭 MiniMax")
     parser.add_argument(
         "--print-llm",
         action="store_true",
-        help="将 Gemini 参数解析 JSON 和结果分析同时输出到终端",
+        help="将 MiniMax 参数解析 JSON 和结果分析同时输出到终端",
     )
     parser.add_argument(
         "--report-lang",
         choices=["zh", "en"],
-        help="Markdown/Gemini 分析输出语言；覆盖 config.report.language",
+        help="Markdown/MiniMax 分析输出语言；覆盖 config.report.language",
     )
 
 
@@ -103,11 +104,11 @@ def main() -> None:
     p_plan.add_argument("--plugin-root", action="append", default=[])
     p_plan.add_argument("--config", help="Also register built-in tools from this configuration")
     p_plan.add_argument("--request", default="")
-    p_plan.add_argument("--gemini", action="store_true")
-    p_plan.add_argument("--model", default="gemini-2.5-flash")
+    p_plan.add_argument("--llm", action="store_true")
+    p_plan.add_argument("--model", default="MiniMax-M2.5")
     p_plan.add_argument("--api-key")
     p_plan.add_argument("--ask-api-key", action="store_true")
-    p_plan.add_argument("--base-url", default="https://generativelanguage.googleapis.com/v1beta")
+    p_plan.add_argument("--base-url", default="https://api.minimax.cn/v1")
 
     args = parser.parse_args()
 
@@ -129,14 +130,13 @@ def main() -> None:
             interpretation=args.request,
         )
         planner = WorkflowPlanner(registry)
-        if args.gemini:
-            from .llm.gemini import GeminiClient
-
-            key = args.api_key or os.environ.get("GEMINI_API_KEY")
+        if args.llm:
+            from .llm.gemini import MiniMaxClient
+            key = args.api_key or os.environ.get('MINIMAX_API_KEY')
             if not key and args.ask_api_key:
-                key = getpass.getpass("Gemini API key: ")
-            client = GeminiClient(api_key=key, base_url=args.base_url)
-            plan = planner.with_llm(goal, client=client, model=args.model)
+                key = getpass.getpass('MiniMax API key: ')
+            client = MiniMaxClient(api_key=key,base_url=args.base_url)
+            plan = planner.with_llm(goal,client=client,model=args.model)
         else:
             plan = planner.deterministic(goal)
         _print_json(plan.to_dict())

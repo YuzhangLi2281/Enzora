@@ -152,20 +152,20 @@ export function Header() {
             <button
               className={theme === "deep-space" ? "selected" : ""}
               aria-pressed={theme === "deep-space"}
-              aria-label={zh ? "Atlas 蓝黑配色" : "Atlas dark theme"}
+              aria-label={zh ? "深色配色" : "Dark theme"}
               onClick={() => chooseTheme("deep-space")}
             >
               <span className="theme-swatch atlas-swatch" />
-              Atlas
+              Dark
             </button>
             <button
               className={theme === "macaron" ? "selected" : ""}
               aria-pressed={theme === "macaron"}
-              aria-label={zh ? "马卡龙配色" : "Macaron theme"}
+              aria-label={zh ? "浅色配色" : "Light theme"}
               onClick={() => chooseTheme("macaron")}
             >
               <span className="theme-swatch macaron-swatch" />
-              {zh ? "马卡龙" : "Macaron"}
+              Light
             </button>
           </div>
           <span className="connection-status" role="status">

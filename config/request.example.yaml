@@ -23,8 +23,11 @@ models:
     checkpoint: ../model_weights/enzora_screen/UniStab/model.ckpt
     weights_dir: ../model_weights/enzora_screen/UniStab
 selection:
-  # Set to a frozen, validated WT-reference policy to use server-matched scoring.
-  score_policy: null
+  # Native-unit resolution floors; freeze empirical scales after the first scoring pass.
+  score_policy:
+    method: input_reference_three_model_llm_v3
+    calibration: first_pool_q10_q90
+    resolution_scales: {kcat: 0.25, ph: 0.08, stability: 0.1}
   target_ph: 7.5
   ph_tolerance: 1.0
   stability_direction: lower_is_better
@@ -41,13 +44,15 @@ selection:
     activity: 1.0
     stability: 1.0
 llm:
+  provider: minimax
   enabled: false
-  base_url: https://generativelanguage.googleapis.com/v1beta
+  base_url: https://api.minimax.cn/v1
   parameter_parsing: true
+  auto_balance: true
   result_analysis: true
-  parameter_model: gemini-2.5-flash
-  analysis_model: gemini-2.5-pro
-  max_tokens: 4000
+  parameter_model: MiniMax-M2.5
+  analysis_model: MiniMax-M2.5
+  max_tokens: 8192
   analysis_top_n: 20
   analysis_fail_open: true
 visualization:

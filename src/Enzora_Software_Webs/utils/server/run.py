@@ -1,10 +1,10 @@
 """Start the web backend.
 
-Run from the repository `server/` directory on the GPU server:
+Run from the repository root with the configured model environments:
 
-    python run.py --host 0.0.0.0 --port 8000
+    python src/Enzora_Software_Webs/utils/server/run.py --host 127.0.0.1 --port 8000
 
-The scientific package must be importable (pip install -e . from the repo root).
+The launcher adds src/ to the Python search path.
 """
 from __future__ import annotations
 

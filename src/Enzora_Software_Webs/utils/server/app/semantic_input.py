@@ -1,6 +1,6 @@
 """AI interpretation of user intent with deterministic sequence provenance checks.
 
-Natural language is sent intact to Gemini. AI chooses meaning and sequence
+Natural language is sent intact to MiniMax. AI chooses meaning and sequence
 spans; it never supplies an unverified or corrected biological sequence.
 """
 from __future__ import annotations
@@ -123,7 +123,7 @@ def input_context(context: dict[str, Any] | None) -> dict[str, Any]:
     return sanitized
 
 
-def classify_text(text: str, *, client: Any = None, model: str = "gemini-2.5-flash",
+def classify_text(text: str, *, client: Any = None, model: str = "MiniMax-M2.5",
                   type_override: str | None = None, context: dict[str, Any] | None = None) -> dict[str, Any]:
     raw = text.strip()
     check_size(raw)
@@ -140,7 +140,7 @@ def classify_text(text: str, *, client: Any = None, model: str = "gemini-2.5-fla
         sequence = validate_sequence(raw, type_override)
         return result([record(sequence, type_override)], interpretation="已按你指定的序列类型读取，请确认后运行。")
     if client is None:
-        raise ValueError("未配置 Gemini。请在服务端设置 GEMINI_API_KEY，或手动选择蛋白质、DNA、RNA 类型后读取。")
+        raise ValueError("未配置 MiniMax。请在服务端设置 MINIMAX_API_KEY，或手动选择蛋白质、DNA、RNA 类型后读取。")
     if len(raw) > MAX_AI_TEXT:
         raise ValueError("文本超过 AI 识别长度。请上传序列文件，或手动选择输入类型。")
     sanitized_context = input_context(context)
@@ -200,7 +200,7 @@ def classify_text(text: str, *, client: Any = None, model: str = "gemini-2.5-fla
 
 def classify_records(records: list[dict[str, str]], *, client: Any, model: str) -> tuple[list[dict[str, str]], dict[str, Any]]:
     if client is None:
-        raise ValueError("该文件未声明蛋白质或核酸类型。请选择输入类型，或配置 GEMINI_API_KEY 后进行 AI 识别。")
+        raise ValueError("该文件未声明蛋白质或核酸类型。请选择输入类型，或配置 MINIMAX_API_KEY 后进行 AI 识别。")
     # Use intact short sequences; long sequences use provenance-preserving
     # previews, because the task is type recognition rather than sequence generation.
     context = [{"id": r["id"], "name": r["name"], "length": len(r["sequence"]),

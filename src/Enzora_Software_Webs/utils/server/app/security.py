@@ -33,7 +33,9 @@ def get_key(session_id: str | None) -> str | None:
             key = _keys.get(session_id)
         if key:
             return key
-    return os.environ.get("GEMINI_API_KEY", "").strip() or None
+    from .config import load_settings
+    key_name = {"minimax": "MINIMAX_API_KEY", "gemini": "GEMINI_API_KEY"}[load_settings()["llm"]["provider"]]
+    return os.environ.get(key_name, "").strip() or None
 
 
 def key_status(session_id: str | None = None) -> dict[str, str | bool]:
@@ -42,7 +44,7 @@ def key_status(session_id: str | None = None) -> dict[str, str | bool]:
         with _lock:
             if _keys.get(session_id):
                 return {"configured": True, "source": "session"}
-    if os.environ.get("GEMINI_API_KEY", "").strip():
+    if get_key(None):
         return {"configured": True, "source": "environment"}
     return {"configured": False, "source": "none"}
 

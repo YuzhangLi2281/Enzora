@@ -118,6 +118,11 @@ export function useRun(jobId: string | null) {
         if (disposed) return;
         setMeta({ ...run, stages: [...run.stages] });
         if (run.generation) setGeneration(run.generation);
+        if (run.applied_selection) {
+          const current=useApp.getState().runRequest;
+          if(current && JSON.stringify(current.selection)!==JSON.stringify(run.applied_selection))
+            useApp.getState().setRunRequest({...current,selection:run.applied_selection});
+        }
         setError(null);
         setLoading(false);
         if (active(run)) {

@@ -600,6 +600,12 @@ def main() -> None:
     manifest = output_dir / cfg['output']['library_manifest']
     # Attribution describes the limiting Gaussian-LLR model, not causal generation ownership.
     limiting_counts = {name: 0.0 for name in calibrated}
+    selected_values = {name: [] for name in calibrated}
+    frames = []
+    # Fixed shared bins; animate cumulative saved substitutions, never fabricated LLRs.
+    finite = np.concatenate([scores[np.isfinite(scores)] for scores in calibrated.values()])
+    bin_edges = np.linspace(float(finite.min())-.01, float(finite.max())+.01, 33)
+    frame_step = max(1, math.ceil(len(variants)/36))
     with manifest.open('w', newline='', encoding='utf-8') as handle:
         writer = csv.DictWriter(handle, fieldnames=list(variants[0]))
         writer.writeheader()
@@ -608,13 +614,22 @@ def main() -> None:
             for mutation in variant['mutations'].split(':'):
                 position, aa = int(mutation[1:-1]) - 1, AA20.index(mutation[-1])
                 values = {name: float(scores[position, aa]) for name, scores in calibrated.items()}
+                for name,value in values.items():
+                    selected_values[name].append(value)
                 minimum = min(values.values())
                 tied = [name for name, value in values.items() if value == minimum]
                 for name in tied:
                     limiting_counts[name] += 1 / len(tied)
+            if count % frame_step == 0 or count == len(variants):
+                frames.append({'saved': count, 'counts': dict(limiting_counts),
+                    'density': {name: (np.histogram(values,bins=bin_edges)[0] / (len(values)*np.diff(bin_edges))).tolist()
+                                for name,values in selected_values.items()}})
             if count % 100 == 0 or count == len(variants):
                 handle.flush()
-                progress({'status': 'saving', 'saved_sequences': count, 'target_sequences': len(variants), 'limiting_model_counts': dict(limiting_counts)})
+                progress({'status': 'saving', 'saved_sequences': count, 'target_sequences': len(variants),
+                    'limiting_model_counts': dict(limiting_counts),
+                    'llr_landscape': {'bins': ((bin_edges[:-1]+bin_edges[1:])/2).tolist(),
+                        'frames': frames, 'source': 'saved_substitutions_binned_density'}})
     plot_library(variants, output_dir)
     metadata = {
         "config": str(config_path),

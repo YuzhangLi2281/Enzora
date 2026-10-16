@@ -124,8 +124,8 @@ def load_config(path: str | Path) -> dict[str, Any]:
     if data['report']['language'] not in {'en', 'zh'}:
         raise ConfigError('report.language must be en or zh')
     for field in ('parameter_model', 'analysis_model'):
-        if not isinstance(data['llm'][field], str) or not data['llm'][field].startswith('gemini-'):
-            raise ConfigError(f'llm.{field} must name a Gemini model')
+        if not isinstance(data['llm'][field], str) or not data['llm'][field].startswith({'minimax': 'MiniMax-', 'gemini': 'gemini-'}.get(data['llm'].get('provider'), '!invalid!')):
+            raise ConfigError(f'llm.{field} must match the configured llm.provider')
     for field in ('timeout_seconds',):
         if type(data['runtime'][field]) is not int or data['runtime'][field] <= 0:
             raise ConfigError(f'runtime.{field} must be a positive integer')

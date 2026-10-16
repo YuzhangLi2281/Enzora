@@ -9,6 +9,8 @@
 import { demo } from "../demo/backend";
 import { normalizeApiBase, resolveDemoMode } from "./config";
 import type {
+  AtlasRecord,
+  ProteinStructure,
   ClassifyResult,
   CodonOptimizeResponse,
   HostInfo,
@@ -136,12 +138,18 @@ const post = <T>(path: string, body: unknown): Promise<T> =>
   http<T>(path, { method: "POST", body: JSON.stringify(body) });
 
 export const api = {
-  chat(
+  async chat(
     message: string,
     jobId: string | null,
     sessionId: string | null,
+    proteinSequence?: string,
   ): Promise<{
     message: string;
+    structure?: ProteinStructure;
+    atlas?: AtlasRecord;
+    prepared_sequence?: {start:number;end:number;sequence:string};
+    tool_calls?: {tool:string}[];
+    fasta_records?: {id:string;sequence:string}[];
     codon_rows?: Record<string, unknown>[];
     tool_result?: {
       weights: { ph: number; activity: number; stability: number };
@@ -151,10 +159,39 @@ export const api = {
     if (isDemo())
       return Promise.resolve({
         message: /[\u3400-\u9fff]/.test(message)
-          ? "这是本地演示回复，没有调用 Gemini。你可以设置突变数量与阶数、体验三评分器配平，再通过 Next Process 查看 Top-K 和宿主密码子导出。连接真实后端后，助手才会根据自然语言调用相应工具。"
-          : "Demo assistant: no Gemini request was made. Adjust preferences and confidence in the control panel, apply the balance, then use Next Process to advance.",
+          ? "这是本地演示回复，没有调用 MiniMax。你可以设置突变数量与阶数、体验三评分器配平，再通过 Next Process 查看 Top-K 和宿主密码子导出。连接真实后端后，助手才会根据自然语言调用相应工具。"
+          : "Demo assistant: no MiniMax request was made. Adjust preferences and confidence in the control panel, apply the balance, then use Next Process to advance.",
       });
-    return post("/chat", { message, job_id: jobId, session_id: sessionId });
+    const response=await responseFor('/chat/stream',{method:'POST',body:JSON.stringify({message,job_id:jobId,session_id:sessionId,...(proteinSequence?{protein_sequence:proteinSequence}:{})})});
+    if(!response.body)throw new ApiError(502,'Assistant returned an empty stream.');
+    const reader=response.body.getReader(),decoder=new TextDecoder();
+    let buffer='';
+    try {
+      while(true){
+        const {value,done}=await reader.read();
+        if(done)break;
+        buffer+=decoder.decode(value,{stream:true});buffer=buffer.replace(/\r\n/g,'\n');
+        let boundary:number;
+        while((boundary=buffer.indexOf('\n\n'))>=0){
+          const frame=buffer.slice(0,boundary);buffer=buffer.slice(boundary+2);
+          const data=frame.split('\n').filter(line=>line.startsWith('data:')).map(line=>line.slice(5).trimStart()).join('\n');
+          if(!data)continue;
+          const result=JSON.parse(data);
+          if(result.event==='error')throw new ApiError(result.data.status,result.data.message);
+          if(result.event==='complete')return result.data;
+        }
+      }
+      throw new ApiError(502,'Assistant stream ended before the result. Check the applied controls before retrying.');
+    } finally {await reader.cancel();}
+
+  },
+  atlas(query:string,similar=false):Promise<AtlasRecord>{
+    if(isDemo())return Promise.reject(new ApiError(400,'Use live mode to query ESM Atlas.'));
+    return post('/tools/atlas',{query,similar});
+  },
+  sequenceTool(tool:string,sequence:string,args:Record<string,number>={}):Promise<{prepared_sequence?:{start:number;end:number;sequence:string};structure?:ProteinStructure}> {
+    if(isDemo())return Promise.reject(new ApiError(400,'Use live mode to run scientific tools.'));
+    return post('/tools/sequence',{tool,sequence,arguments:args});
   },
   advanceRun(jobId: string, phase: number): Promise<unknown> {
     if (isDemo()) return Promise.resolve(demo.advanceRun(jobId, phase));

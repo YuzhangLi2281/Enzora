@@ -11,13 +11,6 @@ import { Badge, Chips, Empty, fmt } from '../../shared/ui/primitives';
 
 const RULER_STEP = 10;
 
-function scoreColor(score: number): string {
-  // blue -> cyan -> green as the score rises (final_score is 0..1)
-  const v = Math.max(0, Math.min(1, score));
-  const hue = 215 - v * 90; // 215 (blue) -> 125 (green)
-  return `hsl(${hue} 80% 60%)`;
-}
-
 export function SequenceCompare(props: {
   wtSequence: string;
   candidates: Candidate[];
@@ -77,8 +70,6 @@ function SingleView(props: { wt: string; candidate: Candidate | null; onPickMuta
   const lang = useApp((s) => s.lang);
   const { wt, candidate } = props;
   if (!candidate) return <Empty text={t('table.noData', lang)} />;
-  const match = candidate.mutation.match(/^([A-Z])(\d+)([A-Z])$/);
-  const pos = match ? Number(match[2]) : null;
   const mutant = candidate.mutant_sequence ?? '';
 
   return (
@@ -86,7 +77,7 @@ function SingleView(props: { wt: string; candidate: Candidate | null; onPickMuta
       <div className="small dim" style={{ marginBottom: 4 }}>WT</div>
       <div className="seq-line">
         {Array.from(wt).map((aa, i) => {
-          const isMut = i + 1 === pos;
+          const isMut = typeof mutant[i] === 'string' && mutant[i] !== aa;
           return (
             <span
               key={i}
@@ -103,7 +94,7 @@ function SingleView(props: { wt: string; candidate: Candidate | null; onPickMuta
       </div>
       <div className="seq-line">
         {Array.from(wt).map((aa, i) => {
-          const isMut = i + 1 === pos;
+          const isMut = typeof mutant[i] === 'string' && mutant[i] !== aa;
           return isMut ? (
             <span key={i} className="seq-mut" onClick={() => props.onPickMutation(candidate.mutation)}>
               {mutant[i] ?? '?'}
@@ -150,14 +141,13 @@ function MatrixView(props: { wt: string; candidates: Candidate[]; selected: stri
   const { positions, rows } = useMemo(() => {
     const posSet = new Set<number>();
     const parsed = props.candidates.map((c) => {
-      const m = c.mutation.match(/^([A-Z])(\d+)([A-Z])$/);
-      const position = m ? Number(m[2]) : null;
-      if (position) posSet.add(position);
-      return { c, position, wt: m?.[1], mt: m?.[3] };
+      const substitutions = new Map<number,string>();
+      if(c.mutant_sequence) Array.from(c.mutant_sequence).forEach((aa,i)=>{if(aa!==props.wt[i]){posSet.add(i+1);substitutions.set(i+1,aa);}});
+      return { c, substitutions };
     });
     const ordered = [...posSet].sort((a, b) => a - b);
     return { positions: ordered, rows: parsed.slice(0, 18) };
-  }, [props.candidates]);
+  }, [props.candidates,props.wt]);
 
   if (!rows.length) return <Empty text={t('table.noData', lang)} />;
 
@@ -175,7 +165,7 @@ function MatrixView(props: { wt: string; candidates: Candidate[]; selected: stri
             <td className="mono dim">WT</td>
             {positions.map((p) => <td key={p} style={{ textAlign: 'center' }} className="mono dim">{props.wt[p - 1]}</td>)}
           </tr>
-          {rows.map(({ c, position, mt }) => (
+          {rows.map(({ c, substitutions }) => (
             <tr
               key={c.mutation}
               className={`${props.selected === c.mutation ? 'selected' : ''} ${String(c.pareto_optimal) === 'true' ? 'pareto' : ''}`}
@@ -187,13 +177,13 @@ function MatrixView(props: { wt: string; candidates: Candidate[]; selected: stri
               </td>
               {positions.map((p) => (
                 <td key={p} style={{ textAlign: 'center' }}>
-                  {position === p ? (
+                  {substitutions.has(p) ? (
                     <span
                       className="seq-mut"
-                      style={{ background: scoreColor(Number(c.final_score ?? 0)) }}
+                      style={{ background: "#173F80", color:"white" }}
                       title={`${c.mutation} score=${fmt(c.final_score)}`}
                     >
-                      {mt}
+                      {substitutions.get(p)}
                     </span>
                   ) : <span className="seq-dot">·</span>}
                 </td>

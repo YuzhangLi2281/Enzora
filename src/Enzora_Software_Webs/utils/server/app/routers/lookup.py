@@ -76,12 +76,8 @@ def _normalize_query(query: str, api_key: str | None) -> tuple[str, list[str]]:
         notes.append("query still contains Chinese characters (external databases index English names)")
         if api_key:
             try:
-                from Enzora_Agent.llm.gemini import GeminiClient
-
-                client = GeminiClient(
-                    api_key=api_key,
-                    base_url=load_settings()["llm"].get("base_url", "https://generativelanguage.googleapis.com/v1beta"),
-                )
+                from Enzora_Agent.llm.gemini import create_client
+                client = create_client(load_settings()['llm'], api_key)
                 translated = client.text(
                     model=load_settings()["llm"]["parameter_model"],
                     system_prompt=(

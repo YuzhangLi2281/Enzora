@@ -95,7 +95,7 @@ def submit_run(payload: RunSubmit) -> dict[str, Any]:
     request["candidate"], request["selection"] = candidate, selection
     llm = request.setdefault("llm", {"enabled": False})
     if llm.get("enabled") and not api_key:
-        raise HTTPException(status_code=400, detail="Configure GEMINI_API_KEY on the server or set a key in Settings before enabling AI.")
+        raise HTTPException(status_code=400, detail="Configure MINIMAX_API_KEY on the server or set a key in Settings before enabling AI.")
     if llm.get("enabled") and llm.get("parameter_parsing", True):
         from .llm import ParseBody, parse
 
@@ -265,7 +265,8 @@ def rerank(job_id: str, payload: RerankRequest) -> dict[str, Any]:
         rows = list(csv.DictReader(handle))
 
     config_path = Path(meta['run_dir']).parent / 'request.yaml'
-    selection = yaml.safe_load(config_path.read_text())['selection']
+    selection_file = run_dir / 'selection.yaml'
+    selection = yaml.safe_load(selection_file.read_text()) if selection_file.exists() else yaml.safe_load(config_path.read_text())['selection']
     selection['weights'] = payload.weights
     reference_path = run_dir / 'scoring_reference.json'
     if reference_path.is_file():
@@ -358,6 +359,9 @@ def balance_run(job_id: str, payload: BalanceRequest) -> dict:
     if state.get('phase', 0) > 2 or (run_dir / 'advance_3').exists() or handle.status != 'running':
         raise HTTPException(status_code=409, detail='Balancing is available before phase 3 starts')
     config = copy.deepcopy(handle.config)
+    accepted = run_dir / 'selection.yaml'
+    if accepted.is_file():
+        config['selection'] = yaml.safe_load(accepted.read_text())
     config['selection']['weights'] = payload.weights
     config['selection']['confidence'] = payload.confidence
     try:
