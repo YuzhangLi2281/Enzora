@@ -477,6 +477,13 @@ export function MutationAtlas({
   const scoreMin = scored.length ? Math.min(...scored) : null;
   const scoreMax = scored.length ? Math.max(...scored) : null;
   const colorPosition = (score: number) => scoreMin === scoreMax ? 0.5 : (score - scoreMin!) / (scoreMax! - scoreMin!);
+  const scoreColor = (score: number) => {
+    const stops = [[140,191,194],[180,154,200],[232,184,210]];
+    const position = colorPosition(score)*2;
+    const index = Math.min(1,Math.floor(position));
+    const fraction = position-index;
+    return `rgb(${stops[index].map((channel,i)=>Math.round(channel+(stops[index+1][i]-channel)*fraction)).join(' ')})`;
+  };
   // Keep the 1,000 glyphs stable while only the camera or tooltip changes.
   const dots = useMemo(
     () =>
@@ -486,10 +493,11 @@ export function MutationAtlas({
           data-point={p.mutation}
           cx={p.px}
           cy={p.py}
-          r={p.mutation === picked ? 4.5 : p.rank ? 3.1 : 1.55}
-          fill={p.score === null ? "var(--atlas-unknown)" : `hsl(${213 - colorPosition(p.score) * 10} 65% ${87 - colorPosition(p.score) * 56}%)`}
+          r={(points.length <= 50 ? 5 : points.length <= 250 ? 3.4 : 2.2) + (p.mutation === picked ? 1.5 : p.rank ? 1 : 0)}
+          fill={p.score === null ? "var(--atlas-unknown)" : scoreColor(p.score)}
           stroke={p.rank ? "var(--atlas-selected)" : "none"}
-          strokeWidth={p.rank ? 1.2 : 0}
+          strokeWidth={p.rank ? 1.2 : 0.65}
+          style={{stroke:p.rank ? "var(--atlas-selected)" : "color-mix(in srgb, currentColor 70%, #3b4355)",strokeWidth:p.rank ? 1.2 : 0.65,color:p.score===null ? "var(--atlas-unknown)" : scoreColor(p.score)}}
           opacity={p.rank || p.mutation === picked ? 1 : 0.9}
           onPointerEnter={() => {
             if (!drag.current) setHover(p);

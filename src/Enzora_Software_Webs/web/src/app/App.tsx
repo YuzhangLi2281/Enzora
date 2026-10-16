@@ -103,6 +103,7 @@ export default function App() {
                 <a href="mailto:YuzhangLi2281@gmail.com"><strong>Yuzhang Li</strong><span>YuzhangLi2281@gmail.com</span><span aria-hidden="true">↗</span></a>
                 <a href="mailto:3108542350@qq.com"><strong>Kexin Li</strong><span>3108542350@qq.com</span><span aria-hidden="true">↗</span></a>
                 <a href="mailto:zhaoyupu6@gmail.com"><strong>Yupu Zhao</strong><span>zhaoyupu6@gmail.com</span><span aria-hidden="true">↗</span></a>
+                <a href="mailto:ZhaiYuJia-ZHAI@outlook.com"><strong>Yujia Zhai</strong><span>ZhaiYuJia-ZHAI@outlook.com</span><span aria-hidden="true">↗</span></a>
               </div>
             </section>
             <nav className="teams-workspace-links" aria-label={lang === 'zh' ? '工作区管理' : 'Workspace utilities'}>

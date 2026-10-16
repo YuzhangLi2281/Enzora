@@ -4477,11 +4477,11 @@ body,
 :root[data-theme="deep-space"] .enzora-teams-page :is(.teams-note,.teams-project,.teams-resource-list p) { color:#b7cada; }
 :root[data-theme="deep-space"] .enzora-teams-page .teams-pending { background:#ffffff07 !important; }
 :root[data-theme="macaron"] .process-scroll > .process-canvas { background:linear-gradient(180deg,#fdfefe 0%,#f7fbff 11%,#edf5ff 38%,#edf0fb 65%,#eee8f6 100%); }
-.process-canvas > .process-section > .stage-decoration { position:absolute; width:78%; height:88%; object-fit:contain; pointer-events:none; user-select:none; z-index:-1; opacity:.075; mask-image:radial-gradient(ellipse,#000 24%,transparent 74%); animation:stage-molecule-drift 24s ease-in-out infinite alternate; }
+.process-canvas > .process-section > .stage-decoration { position:absolute; width:78%; height:88%; object-fit:contain; pointer-events:none; user-select:none; z-index:-1; opacity:.075; mask-image:radial-gradient(ellipse,#000 24%,transparent 74%); animation:stage-molecule-float 24s cubic-bezier(.45,0,.55,1) infinite alternate,stage-molecule-breathe 10s ease-in-out infinite alternate; animation-delay:-9s,-3s; will-change:transform,opacity; transform-origin:50% 50%; backface-visibility:hidden; }
 .process-canvas > .process-section > .stage-decoration-library { --stage-angle:-12deg; top:4%; right:-7%; opacity:.105; }
 .process-canvas > .process-section > .stage-decoration-screening { --stage-angle:15deg; top:9%; right:18%; width:85%; }
 .process-canvas > .process-section > .stage-decoration-output { --stage-angle:-22deg; top:6%; right:-6%; width:92%; opacity:.065; }
-@keyframes stage-molecule-drift { from {transform:translate3d(0,0,0) rotate(var(--stage-angle,0deg));} to {transform:translate3d(8px,-8px,0) rotate(calc(var(--stage-angle,0deg) + 3deg));} }
+
 @media(max-width:1000px) {
   .app-header .brand-symbol {width:35px;height:35px;}
   .enzora-teams-page {width:calc(100% - 24px);padding:30px 22px 54px;}
@@ -4660,9 +4660,9 @@ body,
 :root[data-theme="macaron"] .process-scroll > .process-canvas {
   background:radial-gradient(ellipse at 86% 14%,#d7eafc90,transparent 25%),radial-gradient(ellipse at 8% 48%,#d9eeeb80,transparent 22%),radial-gradient(ellipse at 81% 83%,#e6d9f4a0,transparent 25%),linear-gradient(180deg,#fdfefe 0%,#f6fbff 12%,#edf5ff 37%,#edf0fb 65%,#eee8f6 100%);
 }
-.process-canvas > .process-section > .stage-decoration-library {width:93%;height:100%;right:-12%;top:-2%;opacity:.19;mask-image:radial-gradient(ellipse at 65% 45%,#000 15%,transparent 73%);}
-.process-canvas > .process-section > .stage-decoration-screening {width:104%;height:104%;right:0;top:0;opacity:.14;mask-image:linear-gradient(120deg,#0008,#000 42%,transparent 90%);}
-.process-canvas > .process-section > .stage-decoration-output {width:100%;height:100%;right:-4%;top:0;opacity:.13;mask-image:radial-gradient(ellipse,#000 30%,transparent 78%);}
+.process-canvas > .process-section > .stage-decoration-library {width:93%;height:100%;right:-12%;top:-2%;opacity:.19;--stage-opacity:.19;mask-image:radial-gradient(ellipse at 65% 45%,#000 15%,transparent 73%);}
+.process-canvas > .process-section > .stage-decoration-screening {width:104%;height:104%;right:-16%;top:0;opacity:.14;--stage-opacity:.14;mask-image:linear-gradient(120deg,#0008,#000 42%,transparent 90%);}
+.process-canvas > .process-section > .stage-decoration-output {width:100%;height:100%;right:-4%;top:0;opacity:.13;--stage-opacity:.13;mask-image:radial-gradient(ellipse,#000 30%,transparent 78%);}
 .teams-asset-credits {margin:18px 0;color:var(--text-dim);font-size:12px;}
 .teams-asset-credits summary {cursor:pointer;}
 .teams-asset-credits p {max-width:740px;line-height:1.7;margin:12px 0;}
@@ -4712,13 +4712,22 @@ body,
 .copilot-compose {gap:12px;padding:16px;line-height:1.6;}
 .assistant-action-progress {line-height:1.7;}
 .assistant-action-progress li {margin:9px 0;}
-.atlas-color-key {left:14px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:10px;align-items:center;width:100px;font-size:15px;line-height:1.35;text-align:center;color:var(--text);z-index:3;}
-.atlas-color-key i {width:20px;height:170px;border-radius:var(--radius-ui);background:linear-gradient(to top,hsl(213 65% 87%),hsl(203 65% 31%));border:1px solid #7b98b43d;}
+.atlas-color-key {left:0;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:10px;align-items:center;width:100px;font-size:15px;line-height:1.35;text-align:center;color:var(--text);z-index:3;}
+.atlas-color-key i {width:20px;height:188px;border-radius:var(--radius-ui);background:linear-gradient(to top,#8cbfc2 0%,#b49ac8 50%,#e8b8d2 100%);border:1px solid #7b98b43d;}
 .atlas-color-key small {font-size:10px;max-width:95px;color:var(--text-dim);}
-@keyframes stage-molecule-drift {
- from {transform:translate3d(0,0,0) rotate(var(--stage-angle,0deg)) scale(1);filter:brightness(1);}
- to {transform:translate3d(15px,-16px,0) rotate(calc(var(--stage-angle,0deg) + 3deg)) scale(1.025);filter:brightness(1.08);}
+/* Buoyant motion: fixed orientation, a slow vertical drift and a separate
+   opacity breath. No animated filter or angular sweep that re-rasterizes art. */
+@keyframes stage-molecule-float {
+ from {transform:translate3d(-4px,12px,0) rotate(var(--stage-angle,0deg)) scale(.995);}
+ to {transform:translate3d(5px,-14px,0) rotate(var(--stage-angle,0deg)) scale(1.012);}
 }
+@keyframes stage-molecule-breathe {
+ from {opacity:calc(var(--stage-opacity,.14)*.62);}
+ to {opacity:var(--stage-opacity,.14);}
+}
+.process-canvas > .process-section > .stage-decoration-screening {animation-duration:32s,12s;animation-delay:-17s,-7s;}
+.process-canvas > .process-section > .stage-decoration-output {animation-duration:28s,11s;animation-delay:-5s,-2s;}
+
 @media(max-width:700px){.app-header .nav-link{font-size:14px;}.atlas-color-key{left:3px;width:66px;font-size:12px;}.atlas-color-key i{height:120px;width:16px;}.atlas-color-key small{font-size:9px;}.section-heading .library-stage-title{margin-top:18px;}}
 
 .library-section .section-heading p {max-width:1050px;}
@@ -4733,3 +4742,14 @@ body,
 .candidate-influence-track span {display:block;height:100%;background:var(--evidence-color);transition:width .4s ease;}
 .candidate-evidence-total {line-height:1.6;margin:16px 0;}
 .candidate-evidence-total strong {float:right;font-size:24px;}
+
+/* Reserve a separate legend column; the atlas SVG never enters this gutter. */
+.mutation-atlas {box-sizing:border-box;padding-left:116px;padding-right:64px;padding-bottom:24px;}
+.mutation-atlas > svg {height:100%;min-width:0;}
+.atlas-color-key {width:92px;}
+.atlas-color-key i {width:26px;box-shadow:0 0 0 1px #987aad55;}
+@media(max-width:700px){
+ .mutation-atlas {padding-left:76px;padding-right:0;padding-bottom:50px;}
+ .atlas-color-key {left:0;width:62px;}
+ .atlas-color-key i {width:22px;height:128px;}
+}
