@@ -862,6 +862,12 @@ export function ScoringWaterfall({ rows, weights, confidence, zh, active }: {
   confidence: {activity:number;ph:number;stability:number}; zh:boolean; active:boolean;
 }) {
   const chart=useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    const update = () => setExpanded(document.fullscreenElement === chart.current);
+    document.addEventListener("fullscreenchange", update);
+    return () => document.removeEventListener("fullscreenchange", update);
+  }, []);
   const id=useId().replace(/:/g,'');
   const models=[{key:'activity',name:'Phenom',color:'var(--score-activity)'},{key:'ph',name:'EpHod',color:'var(--score-ph)'},{key:'stability',name:'UniStab',color:'var(--score-stability)'}] as const;
   const denominator=models.reduce((n,m)=>n+weights[m.key]*confidence[m.key],0);
@@ -886,7 +892,7 @@ export function ScoringWaterfall({ rows, weights, confidence, zh, active }: {
   const mean=values.length?values.reduce((sum,c)=>sum+models.reduce((n,m,i)=>n+shares[i]*Number(c[`${m.key}_component`]),0),0)/values.length:null;
   return <div ref={chart} className="scoring-waterfall" data-replay={progress<1}>
     <div className="waterfall-heading"><strong>{zh?'各模型如何组成最终得分':'How the models contribute to the final score'}</strong><span>{values.length?`${values.length} ${zh?'条真实预测':'scored candidates'}`:zh?'等待评分分量':'Awaiting score components'}</span></div>
-    <button type="button" className="chart-expand" disabled={!document.fullscreenEnabled} onClick={() => document.fullscreenElement ? document.exitFullscreen() : chart.current?.requestFullscreen()}>{zh ? "整屏查看 ↗" : "Expand chart ↗"}</button>
+    <button type="button" className="chart-expand" disabled={!document.fullscreenEnabled} onClick={() => document.fullscreenElement ? document.exitFullscreen() : chart.current?.requestFullscreen()}>{expanded ? (zh ? '关闭整屏视图' : 'Close full screen') : (zh ? '整屏查看 ↗' : 'Expand chart ↗')}</button>
     <svg viewBox="0 0 520 350" role="img" aria-label={zh?'偏好乘可信度归一化后的加权贡献':'Weighted contributions after normalizing preference times confidence'}>
       <defs><clipPath id={`${id}-reveal`}><rect x="0" y="70" width="520" height={p*235}/></clipPath></defs>
       {models.map((m,i)=><g key={m.key}>

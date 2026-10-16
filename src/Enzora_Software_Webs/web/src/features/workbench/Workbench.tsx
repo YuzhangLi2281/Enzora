@@ -479,7 +479,7 @@ export function Workbench() {
                           value={sequence}
                           onChange={(e) => setSequence(e.target.value)}
                           disabled={active}
-                          placeholder="MKTAYIAKQRQISFVK…"
+                          placeholder="MRNSTKTSLLLAGLCT…"
                           rows={4}
                         />
                       </label>

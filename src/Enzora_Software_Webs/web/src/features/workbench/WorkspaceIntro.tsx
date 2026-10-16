@@ -110,6 +110,12 @@ export function WorkspaceIntro({
     return () => query.removeEventListener("change", update);
   }, []);
   const chart = useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    const update = () => setExpanded(document.fullscreenElement === chart.current);
+    document.addEventListener("fullscreenchange", update);
+    return () => document.removeEventListener("fullscreenchange", update);
+  }, []);
   const id = useId().replace(/:/g, "");
   const progress = target > 0 ? Math.min(1, saved / target) : 0;
   const element = useRef<HTMLDivElement>(null);
@@ -285,7 +291,7 @@ export function WorkspaceIntro({
         <div><strong>{zh ? '酶突变库构建的 PLM LLR 分布' : 'PLM LLR score distribution for enzyme mutation database construction'}</strong>
           <span role="status">{!frame ? ''
             : replay<.16 ? 'Syncing with VESM…' : replay<.84 ? (zh?'扫描已保存替换':'Scanning saved substitutions') : `N=${saved} · ${zh?'归因完成':'Attribution complete'}`}</span></div>
-        <button type="button" className="chart-expand" disabled={!document.fullscreenEnabled} onClick={() => document.fullscreenElement ? document.exitFullscreen() : chart.current?.requestFullscreen()}>{zh ? "整屏查看 ↗" : "Expand chart ↗"}</button>
+        <button type="button" className="chart-expand" disabled={!document.fullscreenEnabled} onClick={() => document.fullscreenElement ? document.exitFullscreen() : chart.current?.requestFullscreen()}>{expanded ? (zh ? '关闭整屏视图' : 'Close full screen') : (zh ? '整屏查看 ↗' : 'Expand chart ↗')}</button>
         <div className="contribution-track">
           {counts && attributionTotal>0 && generators.map((g,i)=><span key={g.id} style={{width:`${counts[g.id]/attributionTotal*100}%`,background:colors[i]}} />)}
         </div>
