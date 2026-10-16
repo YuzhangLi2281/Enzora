@@ -138,7 +138,6 @@ class ChatBody(BaseModel):
 @router.post('/chat')
 def chat(payload: ChatBody) -> dict[str, Any]:
     """A narrow copilot tool loop: explain evidence or apply validated score balance."""
-    import copy
     import json
     from pathlib import Path
     import yaml
@@ -149,17 +148,18 @@ def chat(payload: ChatBody) -> dict[str, Any]:
     context: dict[str, Any] = {}
     if payload.job_id:
         try:
-            handle = get_manager().get_handle(payload.job_id)
+            meta = get_manager().get_job(payload.job_id)
         except KeyError as exc:
-            raise HTTPException(status_code=404, detail='unknown active job') from exc
-        run_dir = _active_try_dir(handle.run_dir)
+            raise HTTPException(status_code=404, detail='unknown job') from exc
+        output_dir = Path(meta['run_dir'])
+        run_dir = _active_try_dir(output_dir)
         selection_path = run_dir / 'selection.yaml'
         context['selection'] = (yaml.safe_load(selection_path.read_text()) if selection_path.exists()
-                                else copy.deepcopy(handle.config['selection']))
+                                else yaml.safe_load((output_dir.parent / 'request.yaml').read_text())['selection'])
         progress = run_dir / 'progress.json'
         if progress.exists():
             context['progress'] = json.loads(progress.read_text())
-        context['job_status'] = handle.status
+        context['job_status'] = meta['status']
         context['activity_task'] = 'Phenom predicted log10(kcat / s^-1)'
         scores = run_dir / 'scorer_predictions.csv'
         if scores.is_file():
@@ -204,7 +204,7 @@ it cannot change protein-space UMAP coordinates or protein activity predictions.
             with (run_dir / 'llm_balance_decisions.jsonl').open('a', encoding='utf-8') as stream:
                 stream.write(json.dumps(audit, ensure_ascii=False, allow_nan=False) + '\n')
         if result.get('tool') == 'optimize_codons':
-            if not payload.job_id or handle.status != 'success':
+            if not payload.job_id or meta['status'] != 'success':
                 raise HTTPException(status_code=409, detail='Codon optimization requires a completed run')
             arguments = result['arguments']
             if set(arguments) != {'organism_key'} or arguments['organism_key'] not in ('e_coli', 'b_subtilis'):

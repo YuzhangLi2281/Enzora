@@ -56,7 +56,7 @@ visualization:
 runtime:
   gpu_id: 0
   timeout_seconds: 7200
-  keep_temp: true
+  keep_temp: false
   cache_dir: ../src/Enzora_Software_Cache/models
   phase_control: false
 report:

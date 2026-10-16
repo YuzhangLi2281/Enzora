@@ -24,6 +24,11 @@ class UniStabAdapter:
             errors.append(f"UniStab repo 不存在: {self.repo}")
         if not self.entry.is_file():
             errors.append(f"UniStab 推理入口不存在: {self.entry}")
+        for relative in ('vendor/fair_esm/esm/pretrained.py',
+                         'vendor/openfold/openfold/__init__.py',
+                         'vendor/dllogger/dllogger/__init__.py'):
+            if not (self.repo / relative).is_file():
+                errors.append(f'UniStab bundled dependency missing: {self.repo / relative}')
         if not self.checkpoint.is_file():
             errors.append(f"UniStab checkpoint 不存在: {self.checkpoint}")
         for name in ('esmfold_3B_v1.pt', 'esm2_t36_3B_UR50D.pt', 'esm2_t36_3B_UR50D-contact-regression.pt'):
@@ -74,7 +79,8 @@ class UniStabAdapter:
         # UniStab inference imports modules from both repo root and src/.
         child_env = dict(env, TORCH_HOME=str(self.weights_dir))
         old_pythonpath = child_env.get("PYTHONPATH", "")
-        required = f"{self.repo}:{self.repo / 'src'}"
+        required = ":".join(str(self.repo / relative) for relative in (
+            'vendor/fair_esm', 'vendor/openfold', 'vendor/dllogger', '.', 'src'))
         child_env["PYTHONPATH"] = required + ((":" + old_pythonpath) if old_pythonpath else "")
         run_checked(cmd, cwd=self.repo, env=child_env, timeout=timeout, log_file=work_dir / "unistab.log")
         npz = out_dir / f"{run_name}_results.npz"

@@ -3,7 +3,6 @@ from __future__ import annotations
 import copy
 import csv
 import json
-import shutil
 import traceback
 import time
 import yaml
@@ -12,7 +11,7 @@ from pathlib import Path
 from .adapters import EpHodAdapter, PhenomAdapter, UniStabAdapter
 from .config import validate_candidate_and_selection
 from .outputs.codon_optimization import resolve_codon_optimization_request, write_codon_optimization_outputs
-from .core.runtime import build_env, create_try_dir, write_candidates_csv, write_json
+from .core.runtime import build_env, create_try_dir, write_candidates_csv, write_json, cleanup_run_cache
 from .outputs.report import build_markdown_report
 from .core.screening import annotate_candidates, mark_pareto_optimal, write_mutation_features_csv
 from .adapters.vesm import VESMAdapter
@@ -99,7 +98,6 @@ class FixedEnzymeWorkflow:
             "report_language": report_language,
             "status": "running",
         }
-        success = False
 
         try:
             parsed_request: dict = {}
@@ -149,6 +147,9 @@ class FixedEnzymeWorkflow:
                 gpu_id=int(runtime["gpu_id"]),
                 cache_dir=runtime["cache_dir"],
             )
+            temp_dir = run_dir / 'tmp'
+            temp_dir.mkdir()
+            env['TMPDIR'] = str(temp_dir)
             timeout = int(runtime["timeout_seconds"])
 
             self._phase(run_dir, 1, cfg)
@@ -384,7 +385,6 @@ class FixedEnzymeWorkflow:
             write_json(run_dir / "progress.json", {"phase": 3, "status": "success"})
             report["status"] = "success"
             write_json(run_dir / "result.json", report)
-            success = True
             return report
         except Exception as exc:
             report["status"] = "failed"
@@ -393,9 +393,12 @@ class FixedEnzymeWorkflow:
             (run_dir / "error.txt").write_text(traceback.format_exc(), encoding="utf-8")
             raise
         finally:
-            # tryN is always retained. keep_temp only controls large raw model intermediates
-            # after a successful run; failed runs keep everything for debugging.
-            if success and not bool(cfg.get("runtime", {}).get("keep_temp", True)):
-                for name in ["vesm", "phenom", "ephod", "unistab"]:
-                    shutil.rmtree(run_dir / name, ignore_errors=True)
+            # Prediction tables, model logs and generation telemetry remain available.
+            if not cfg['runtime']['keep_temp']:
+                try:
+                    cleanup = cleanup_run_cache(run_dir)
+                    if cleanup['errors']:
+                        print('Cache cleanup requires attention: ' + '; '.join(cleanup['errors']))
+                except OSError as exc:
+                    print(f'Cache cleanup could not finish: {type(exc).__name__}: {exc}')
             print(f"本次运行目录: {run_dir}")

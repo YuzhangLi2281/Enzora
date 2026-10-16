@@ -8,6 +8,8 @@ import { ChatPanel } from "../experiment/ChatPanel";
 import { WorkspaceIntro } from "./WorkspaceIntro";
 import { MutationAtlas, ScoreDistribution } from "../results/Charts";
 import proteinIllustration from "../../../../../../resource/docs/anewomni-protein.svg";
+import moleculeDecoration from "../../../../../../resource/docs/enzora-molecule-decoration.svg";
+import dnaDecoration from "../../../../../../resource/docs/enzora-dna-decoration.svg";
 import {
   defaultSelection,
   reviewedRequest,
@@ -350,7 +352,7 @@ export function Workbench() {
             className="process-section library-section"
           >
             <img
-              className="protein-decoration"
+              className="protein-decoration stage-decoration stage-decoration-library"
               src={proteinIllustration}
               alt=""
               aria-hidden="true"
@@ -635,6 +637,7 @@ export function Workbench() {
             data-phase="2"
             className="process-section screening-section"
           >
+            <img className="stage-decoration stage-decoration-screening" src={moleculeDecoration} alt="" aria-hidden="true" draggable={false} />
             <div className="section-heading">
               <div>
                 <h2>
@@ -938,6 +941,7 @@ export function Workbench() {
             data-phase="3"
             className="process-section output-section"
           >
+            <img className="stage-decoration stage-decoration-output" src={dnaDecoration} alt="" aria-hidden="true" draggable={false} />
             <div className="output-main">
               <MutationAtlas
                 data={run.atlas}

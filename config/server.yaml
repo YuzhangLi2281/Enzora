@@ -44,7 +44,7 @@ execution:
 runtime:
   gpu_id: 0
   timeout_seconds: 7200
-  keep_temp: true
+  keep_temp: false  # Remove per-run tensors after completion, failure or confirmed cancellation.
   cache_dir: ../src/Enzora_Software_Cache/models
   max_gpu_jobs: 1
   max_cpu_jobs: 2

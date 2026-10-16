@@ -6,6 +6,7 @@ import json
 import os
 import shlex
 import subprocess
+import shutil
 from pathlib import Path
 
 from .types import Candidate
@@ -15,11 +16,43 @@ class ExternalCommandError(RuntimeError):
     pass
 
 
+def cleanup_run_cache(run_dir: Path) -> dict:
+    """Remove only reproducible, run-owned tensors and temporary files."""
+    root = run_dir.resolve()
+    removed_bytes = 0
+    errors = []
+    targets = [root / 'phenom/protein_graphs', root / 'phenom/ligand_graphs',
+               root / 'vesm/model_logits_llrs_and_calibrated_scores.npz', root / 'tmp']
+    for target in targets:
+        if not target.exists() and not target.is_symlink():
+            continue
+        if target.is_symlink() or not target.resolve().is_relative_to(root):
+            errors.append(f'Refused cache path outside run: {target.name}')
+            continue
+        try:
+            files = [target] if target.is_file() else [p for p in target.rglob('*') if p.is_file() and not p.is_symlink()]
+            size = sum(p.stat().st_size for p in files)
+            if target.is_dir():
+                shutil.rmtree(target)
+            else:
+                target.unlink()
+            removed_bytes += size
+        except OSError as exc:
+            errors.append(f'{target.relative_to(root)}: {type(exc).__name__}: {exc}')
+    result = {'removed_bytes': removed_bytes, 'errors': errors}
+    write_json(root / 'cache_cleanup.json', result)
+    return result
+
+
 def build_env(*, force_cpu: bool, gpu_id: int, cache_dir: str | Path) -> dict[str, str]:
     env = os.environ.copy()
     env.pop("GEMINI_API_KEY", None)
     if force_cpu:
         env["CUDA_VISIBLE_DEVICES"] = ""
+    elif env.get('SLURM_JOB_ID'):
+        if not env.get('CUDA_VISIBLE_DEVICES'):
+            raise ValueError('Slurm GPU inference requires an allocated CUDA_VISIBLE_DEVICES mask')
+        # Slurm owns physical GPU selection; model adapters use logical cuda:0.
     else:
         env["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
     cache = str(Path(cache_dir).expanduser().resolve())

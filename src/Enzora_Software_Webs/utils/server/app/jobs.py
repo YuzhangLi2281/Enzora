@@ -28,6 +28,7 @@ from . import config as server_config
 # Stage order mirrors Enzora_Agent.workflow.STAGES (frozen engine; kept
 # duplicated here deliberately to avoid importing heavy pipeline modules).
 from Enzora_Agent.workflow import STAGES
+from Enzora_Agent.core.runtime import cleanup_run_cache
 
 STAGE_FILES = {
     0: '00_resolved_request.json',
@@ -137,6 +138,8 @@ class JobManager:
         if set(updates) - {'gpu_id', 'force_cpu', 'timeout_seconds', 'keep_temp', 'phase_control'}:
             raise ValueError('Unsupported runtime controls')
         runtime.update(updates)
+        # The server retention policy is an upper bound on user debug retention.
+        runtime['keep_temp'] = settings['runtime']['keep_temp'] and runtime['keep_temp']
         runtime.pop("force_cpu", None)
         llm = dict(settings.get("llm", {}))
         llm_updates = request.get('llm', {})
@@ -210,6 +213,9 @@ class JobManager:
         slot.release()
         with self._lock:
             self._active.discard(handle.id)
+            # Finished jobs are served from their persisted metadata and artifacts.
+            self._jobs.pop(handle.id, None)
+            handle.api_key = None
         self._wake.set()
 
     # ------------------------------------------------------------------- run
@@ -230,7 +236,37 @@ class JobManager:
             self._emit(handle, "failed", {"error": handle.error})
             self._write_meta(handle)
         finally:
-            self._release(handle, slot)
+            try:
+                self._cleanup_stopped_job(handle)
+            except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
+                self._emit(handle, 'cache_cleanup', {'errors': [f'{type(exc).__name__}: {exc}']})
+            finally:
+                self._release(handle, slot)
+
+    def _cleanup_stopped_job(self, handle: JobHandle) -> None:
+        if handle.config['runtime']['keep_temp']:
+            return
+        if handle.backend == 'slurm' and handle.slurm_id:
+            # scancel acknowledgement alone does not mean model writers have exited.
+            for attempt in range(30):
+                result = self._slurm_command(['sacct', '--noheader', '--parsable2', '--jobs',
+                    str(handle.slurm_id), '--format=JobIDRaw,State'])
+                states = [row.split('|')[1].split()[0].rstrip('+') for row in result.stdout.splitlines()
+                          if row.split('|')[0] == str(handle.slurm_id)]
+                if states and states[0] in _SLURM_TERMINAL:
+                    handle.scheduler_state = states[0]
+                    self._write_meta(handle)
+                    break
+                time.sleep(2)
+            else:
+                raise RuntimeError('Cache retained: scheduler has not confirmed process termination')
+        elif handle.proc is not None and handle.proc.poll() is None:
+            raise RuntimeError('Cache retained: local model process is still running')
+        for run_dir in handle.run_dir.glob('try[0-9]*'):
+            marker = run_dir / 'cache_cleanup.json'
+            if marker.is_file() and not json.loads(marker.read_text())['errors']:
+                continue
+            self._emit(handle, 'cache_cleanup', cleanup_run_cache(run_dir))
 
     def _spawn(self, handle: JobHandle) -> None:
         cmd = [
@@ -589,6 +625,9 @@ class JobManager:
                     self._queue.remove(handle)
             self._emit(handle, 'cancelled', {})
             self._write_meta(handle)
+            with self._lock:
+                self._jobs.pop(handle.id, None)
+                handle.api_key = None
             return
         self._terminate(handle)
         self._wake.set()
