@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import threading
+import shutil
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -53,13 +54,25 @@ def check_paths() -> dict[str, Any]:
 
 @router.post("/health/check-gpu")
 def check_gpu() -> dict[str, Any]:
+    settings = _config_for_package()
+    if settings["execution"]["backend"] == "slurm":
+        missing = [command for command in ("sbatch", "squeue", "sacct", "scancel")
+                   if shutil.which(command) is None]
+        return {
+            "scheduler": {"ok": not missing, "missing_commands": missing},
+            "gpu": {
+                "ok": None,
+                "status": "allocated_per_job",
+                "details": ["The API runs on a CPU service allocation. GPU availability is checked inside each scheduled inference job."],
+            },
+        }
     from Enzora_Agent.diagnostics import gpu_preflight
 
     with _lock:
         if "gpu" in _last_checks:
             return _last_checks["gpu"]
     try:
-        result = gpu_preflight(_config_for_package())
+        result = gpu_preflight(settings)
     except Exception as exc:
         result = {"paths": {"ok": False, "details": [f"{type(exc).__name__}: {exc}"]}}
     with _lock:

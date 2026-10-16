@@ -116,6 +116,7 @@ export function useRun(jobId: string | null) {
         const run = await api.getRun(id);
         if (disposed) return;
         setMeta({ ...run, stages: [...run.stages] });
+        if (run.generation) setGeneration(run.generation);
         setError(null);
         setLoading(false);
         if (active(run)) {

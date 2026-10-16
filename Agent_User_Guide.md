@@ -83,9 +83,9 @@ q_i=0.5+r_i[\sigma(\Delta_i/s_i)-0.5],\qquad S=\sum_iw_iq_i.
 
 ## 9. 部署与公开链接
 
-代码仓库：<https://github.com/YuzhangLi2281/Enzora>（目前私有）。前端仓库：<https://github.com/YuzhangLi2281/Enzora.github.io>。按当前账号与仓库名，GitHub Pages 的项目站点地址为 <https://yuzhangli2281.github.io/Enzora.github.io/>；是否已发布与 API 是否可用必须分别验收。
+代码仓库：<https://github.com/YuzhangLi2281/Enzora>（目前私有）。前端仓库：<https://github.com/YuzhangLi2281/Enzora.github.io>。正式前端域名为 <https://enzora-agent.com/>；受保护的计算 API 使用 <https://api.enzora-agent.com/api>。网页证书、登录与计算任务需要分别验收。
 
-GitHub Pages 只承载静态前端。模型推理通过受鉴权 API 与 M3 集群运行。公网配置只包含代理域名，不包含源站 IP、Key、内部路径或作业配置。生产服务应使用稳定域名与受管理隧道；临时隧道地址不等同于长期部署。
+GitHub Pages 只承载静态前端。模型推理通过受鉴权 API 与 M3 集群运行。公网配置只包含代理域名，不包含源站 IP、Key、内部路径或作业配置。API 通过命名 Cloudflare Tunnel 提供稳定域名。当前 API 使用 8 小时 CPU Slurm 分配，已排队一个等待当前分配结束的接续服务；接续服务确认 API 与隧道健康后再排下一个接续作业。GPU 任务独立运行，API 通过持久化作业 ID 重新接管；交接仍可能有短时断连或排队，集群维护期间不保证在线。管理员可在服务器 `runtime/live-api-current-job` 与 `runtime/live-api-next-job` 查看服务作业号。停止服务前先取消接续作业，再取消当前服务，避免自动拉起。
 
 ## 10. 验证记录
 

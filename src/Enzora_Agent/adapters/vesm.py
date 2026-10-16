@@ -27,7 +27,7 @@ class VESMAdapter:
         base = Path(self.config['config']).parent
         cfg = yaml.safe_load(Path(self.config['config']).read_text())
         for model in cfg['models'].values():
-            for key in ('weights_path', 'base_weights_path', 'repository_path', 'tokenizer_path'):
+            for key in ('weights_path', 'base_weights_path', 'repository_path', 'tokenizer_path', 'residue_annotations_path'):
                 if key in model:
                     path = (base / model[key]).resolve()
                     if not path.exists():
@@ -39,7 +39,7 @@ class VESMAdapter:
         cfg = yaml.safe_load(config_path.read_text())
         # Model paths in the shared template are relative to Enzora/config.
         for model in cfg['models'].values():
-            for key in ('weights_path', 'base_weights_path', 'repository_path', 'tokenizer_path'):
+            for key in ('weights_path', 'base_weights_path', 'repository_path', 'tokenizer_path', 'residue_annotations_path'):
                 if key in model:
                     model[key] = str((config_path.parent / model[key]).resolve())
         work_dir.mkdir(parents=True, exist_ok=True)

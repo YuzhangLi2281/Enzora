@@ -88,7 +88,7 @@ async function responseFor(
   init?: RequestInit,
 ): Promise<Response> {
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 60_000);
+  const timeout = window.setTimeout(() => controller.abort(), 150_000);
   let response: Response;
   try {
     response = await fetch(`${API_BASE}${path}`, {

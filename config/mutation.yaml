@@ -15,8 +15,10 @@ models:
     weights_path: ../model_weights/enzora_mutation/EnzGFM-150M
   vesm3:
     base_model: esm3_sm_open_v1
+    residue_annotations_path: ../model_weights/enzora_mutation/esm3/data/uniref90_and_mgnify90_residue_annotations_gt_1k_proteins.csv
     weights_path: ../model_weights/enzora_mutation/VESM3.pth
-    require_exact_checkpoint: true
+    require_exact_checkpoint: false
+    fine_tuned_layers: [43, 44, 45, 46, 47]
     base_weights_path: ../model_weights/enzora_mutation/esm3/esm3_sm_open_v1.pth
 mutation_space:
   scope: full_sequence

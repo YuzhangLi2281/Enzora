@@ -133,6 +133,9 @@ def get_run(job_id: str) -> dict[str, Any]:
     progress_path = _active_try_dir(Path(meta['run_dir'])) / 'progress.json'
     if progress_path.is_file():
         meta['progress'] = json.loads(progress_path.read_text())
+    generation_path = _active_try_dir(Path(meta['run_dir'])) / 'vesm/progress.json'
+    if generation_path.is_file():
+        meta['generation'] = json.loads(generation_path.read_text())
     result_paths = sorted(
         Path(meta["run_dir"]).glob("try*/result.json"),
         key=lambda p: p.stat().st_mtime,

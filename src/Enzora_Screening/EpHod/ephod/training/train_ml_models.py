@@ -18,7 +18,7 @@ import os, subprocess, sys
 import importlib
 
 sys.path.append('./ephod/training/')
-import Enzora.src.Virtual_Screening_Critics.EpHod.ephod.training.trainutils as trainutils
+import ephod.training.trainutils as trainutils
 importlib.reload(trainutils);
 
 

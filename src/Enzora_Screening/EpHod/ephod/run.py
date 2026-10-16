@@ -22,7 +22,7 @@ warnings.filterwarnings('ignore')
 import esm
 
 sys.path.insert(1, './')
-from Enzora.src.Virtual_Screening_Critics.EpHod.ephod.training import nn_models 
+from ephod.training import nn_models 
 
 
 

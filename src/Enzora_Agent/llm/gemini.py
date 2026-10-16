@@ -28,6 +28,8 @@ class GeminiClient:
         if not re.fullmatch(r'gemini-[A-Za-z0-9.-]+', model) or max_tokens <= 0:
             raise GeminiError('Invalid Gemini model or output budget')
         generation = {'maxOutputTokens': int(max_tokens)}
+        if model == 'gemini-3.8-flash':
+            generation['thinkingConfig'] = {'thinkingLevel': 'low'}
         if json_mode:
             generation['responseMimeType'] = 'application/json'
         request = urllib.request.Request(f'{self.base_url}/models/{model}:generateContent',
@@ -36,7 +38,7 @@ class GeminiClient:
                 'generationConfig': generation}).encode(),
             headers={'Content-Type': 'application/json', 'x-goog-api-key': self.api_key}, method='POST')
         try:
-            with urllib.request.urlopen(request, timeout=45) as response:
+            with urllib.request.urlopen(request, timeout=120) as response:
                 result = json.loads(response.read())
         except urllib.error.HTTPError as exc:
             raise GeminiError(f'Gemini HTTP {exc.code}') from None

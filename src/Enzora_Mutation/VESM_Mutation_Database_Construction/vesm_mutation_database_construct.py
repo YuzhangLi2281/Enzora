@@ -175,9 +175,26 @@ def score_enzgfm(sequence: str, cfg: dict[str, Any], device: torch.device) -> Sc
 def score_vesm3(sequence: str, cfg: dict[str, Any], device: torch.device) -> ScoreResult:
     import torch
     from esm.models.esm3 import ESM3
-    from esm.tokenization import get_esm3_model_tokenizers
-    from esm.utils.constants.esm3 import data_root
-    from esm.utils.constants.models import ESM3_OPEN_SMALL
+    from esm.tokenization import TokenizerCollection
+    from esm.tokenization.function_tokenizer import InterProQuantizedTokenizer
+    from esm.tokenization.residue_tokenizer import ResidueAnnotationsTokenizer
+    from esm.tokenization.sasa_tokenizer import SASADiscretizingTokenizer
+    from esm.tokenization.sequence_tokenizer import EsmSequenceTokenizer
+    from esm.tokenization.ss_tokenizer import SecondaryStructureTokenizer
+    from esm.tokenization.structure_tokenizer import StructureTokenizer
+
+    # The SDK default discovers a Hub snapshot even for sequence-only inference.
+    # Declare the official residue vocabulary explicitly so offline runs never
+    # depend on a hidden download or a fabricated Hub cache layout.
+    residue_annotations = Path(cfg["residue_annotations_path"])
+    if not residue_annotations.is_file():
+        raise FileNotFoundError(f"ESM3 residue annotation vocabulary missing: {residue_annotations}")
+    tokenizers = TokenizerCollection(
+        sequence=EsmSequenceTokenizer(), structure=StructureTokenizer(),
+        secondary_structure=SecondaryStructureTokenizer(kind="ss8"),
+        sasa=SASADiscretizingTokenizer(), function=InterProQuantizedTokenizer(),
+        residue_annotations=ResidueAnnotationsTokenizer(csv_path=str(residue_annotations)),
+    )
 
     with torch.device(device):
         model = ESM3(
@@ -188,7 +205,7 @@ def score_vesm3(sequence: str, cfg: dict[str, Any], device: torch.device) -> Sco
             structure_encoder_fn=lambda _: None,
             structure_decoder_fn=lambda _: None,
             function_decoder_fn=lambda _: None,
-            tokenizers=get_esm3_model_tokenizers(ESM3_OPEN_SMALL),
+            tokenizers=tokenizers,
         )
     base_state = torch.load(
         cfg["base_weights_path"], map_location=device
@@ -196,11 +213,23 @@ def score_vesm3(sequence: str, cfg: dict[str, Any], device: torch.device) -> Sco
     model.load_state_dict(base_state, strict=True)
     checkpoint = torch.load(cfg["weights_path"], map_location=device)
     state = checkpoint.get("model_state_dict", checkpoint) if isinstance(checkpoint, dict) else checkpoint
-    missing, unexpected = model.load_state_dict(state, strict=False)
-    if unexpected:
-        raise ValueError(f"Unexpected VESM3 checkpoint keys: {unexpected[:10]}")
-    if missing and cfg.get("require_exact_checkpoint", False):
-        raise ValueError(f"Missing VESM3 checkpoint keys: {missing[:10]}")
+    if cfg.get("require_exact_checkpoint", True):
+        model.load_state_dict(state, strict=True)
+    else:
+        # The released fine-tune contains only attention/FFN parameters in the
+        # declared layers. Every other parameter must come from the strict base.
+        layers = cfg["fine_tuned_layers"]
+        if not isinstance(layers, list) or not layers or len(set(layers)) != len(layers) or any(type(i) is not int or not 0 <= i < 48 for i in layers):
+            raise ValueError("VESM3 fine_tuned_layers must be distinct layer indices in [0, 47]")
+        suffixes = ("attn.layernorm_qkv.0.weight", "attn.layernorm_qkv.0.bias",
+                    "attn.layernorm_qkv.1.weight", "attn.out_proj.weight",
+                    "attn.q_ln.weight", "attn.k_ln.weight", "ffn.0.weight",
+                    "ffn.0.bias", "ffn.1.weight", "ffn.3.weight")
+        expected = {f"transformer.blocks.{i}.{suffix}" for i in layers for suffix in suffixes}
+        if set(state) != expected:
+            raise ValueError("VESM3 partial checkpoint does not match its declared attention/FFN layer contract")
+        # PyTorch also verifies each provided tensor's shape against the base.
+        model.load_state_dict(state, strict=False)
     model = model.to(torch.float).eval().to(device)
     tokenizer = model.tokenizers.sequence
     encoded = tokenizer.encode(sequence, add_special_tokens=True)
@@ -450,7 +479,7 @@ def validate_config(cfg: dict[str, Any], config_path: Path, require_weights: boo
     """Resolve inputs and enforce quota consistency before expensive model loads."""
     config_dir = config_path.parent
     for model_cfg in cfg["models"].values():
-        for key in ("repository_path", "tokenizer_path", "base_weights_path", "weights_path"):
+        for key in ("repository_path", "tokenizer_path", "base_weights_path", "weights_path", "residue_annotations_path"):
             value = model_cfg.get(key)
             if value:
                 model_cfg[key] = str(resolve_path(str(value), config_dir))
@@ -490,7 +519,7 @@ def validate_config(cfg: dict[str, Any], config_path: Path, require_weights: boo
         raise ValueError(f"Requested {counts[1]} singles but only {len(eligible) * 19} are possible")
     if require_weights:
         for name, model_cfg in cfg["models"].items():
-            for key in (key for key in ("weights_path", "base_weights_path") if key in model_cfg):
+            for key in (key for key in ("weights_path", "base_weights_path", "residue_annotations_path") if key in model_cfg):
                 path = Path(model_cfg[key]).expanduser()
                 if not path.exists():
                     raise FileNotFoundError(f"{name}.{key} does not exist: {path}")

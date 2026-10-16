@@ -23,8 +23,8 @@ import subprocess
 import importlib
 import sys
 sys.path.append('./training/')
-import Enzora.src.Virtual_Screening_Critics.EpHod.ephod.training.trainutils as trainutils
-import Enzora.src.Virtual_Screening_Critics.EpHod.ephod.training.nn_models as nn_models
+import ephod.training.trainutils as trainutils
+import ephod.training.nn_models as nn_models
 importlib.reload(trainutils);
 
 

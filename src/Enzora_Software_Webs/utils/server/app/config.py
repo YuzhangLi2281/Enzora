@@ -34,11 +34,11 @@ def load_settings() -> dict[str, Any]:
             if key in model:
                 model[key] = resolve(model[key])
         if '/' in model['python']:
-            model['python'] = resolve(model['python'])
+            model['python'] = os.path.abspath(SETTINGS_PATH.parent / Path(model['python']).expanduser())
     for key in ('config', 'structure_path'):
         out['mutation'][key] = resolve(out['mutation'][key])
     if '/' in out['mutation']['python']:
-        out['mutation']['python'] = resolve(out['mutation']['python'])
+        out['mutation']['python'] = os.path.abspath(SETTINGS_PATH.parent / Path(out['mutation']['python']).expanduser())
     out['runtime']['cache_dir'] = resolve(out['runtime']['cache_dir'])
     out['jobs_dir'] = resolve(out['jobs_dir'])
     out['plugin_roots'] = [resolve(value) for value in out['plugin_roots']]

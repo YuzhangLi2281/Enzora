@@ -3873,6 +3873,26 @@ body,
   .process-section {
     min-height: 0;
   }
+  .library-controls {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    max-height: 540px;
+    min-height: 0;
+    justify-content: center;
+  }
+  .library-controls .flip-tabs,
+  .library-controls .library-actions {
+    flex-shrink: 0;
+  }
+  .library-controls .flip-tabs {
+    margin: 10px 0;
+  }
+  .library-controls .flip-content {
+    flex: 1;
+    height: auto;
+    min-height: 0;
+  }
   .screening-composition {
     padding-top: 12px;
   }

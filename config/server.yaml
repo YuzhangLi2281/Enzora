@@ -19,8 +19,8 @@ llm:
   base_url: https://generativelanguage.googleapis.com/v1beta
   parameter_parsing: true
   result_analysis: true
-  parameter_model: gemini-3.8-flash
-  analysis_model: gemini-3.8-flash
+  parameter_model: gemini-3.5-flash-lite
+  analysis_model: gemini-3.5-flash-lite
   max_tokens: 4000
   analysis_top_n: 20
   analysis_fail_open: true
