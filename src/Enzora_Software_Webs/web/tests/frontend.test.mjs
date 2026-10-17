@@ -649,3 +649,22 @@ test('Demo Assistant calls only the public read-only endpoint and forwards bound
   assert.equal(answer.message,'Saved case explanation');assert.equal(calls.length,1);assert.equal(calls[0].url,'/api/demo/chat');
   assert.equal(calls[0].body.history.length,1);assert.equal(calls[0].body.job_id,undefined);
 });
+
+
+test('default Atlas demonstration has an actual stored matching structure and reloads repeatedly',()=>{
+ const {demo,DEMO_ATLAS_QUERY,DEMO_ATLAS_SEQUENCE}=harness().load('shared/demo/backend');
+ for(let i=0;i<3;i++){
+   const result=demo.atlas(DEMO_ATLAS_QUERY);
+   assert.equal(result.metadata.accession,'UPI000036401E');
+   assert.equal(result.metadata.sequence,DEMO_ATLAS_SEQUENCE);
+   assert.equal(result.structure.sequence,DEMO_ATLAS_SEQUENCE);
+   assert.equal(result.structure.points.length,260);
+   assert.match(result.structure.pdb,/ATOM/);
+   assert.match(result.structure.pdb,/Attribution 4.0/);
+   assert.equal(result.fold_on_miss,false);
+   assert.equal(result.metadata.folded_on_demand,false);
+   assert.equal(demo.sequenceTool('inspect_structure',DEMO_ATLAS_SEQUENCE).structure.points.length,260);
+ }
+ assert.equal(demo.atlas('P00918').structure,undefined);
+ assert.equal(demo.lookupResolve('P00918','uniprot').sequence,demo.atlas('P00918').metadata.sequence);
+});

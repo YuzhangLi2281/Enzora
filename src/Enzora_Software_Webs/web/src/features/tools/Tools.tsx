@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { DEMO_ENZYME_SEQUENCE } from '../../shared/demo/backend';
+import { DEMO_ATLAS_QUERY, DEMO_ATLAS_SEQUENCE, demo } from '../../shared/demo/backend';
 import { api, isDemo } from '../../shared/api/client';
 import { useApp } from '../../app/store';
 import { ChatPanel } from '../experiment/ChatPanel';
@@ -17,13 +17,13 @@ export function Tools() {
   const catalog=useQuery({queryKey:['tools'],queryFn:()=>api.tools()});
   const hosts=useQuery({queryKey:['hosts'],queryFn:()=>api.hosts()});
   const runs=useQuery({queryKey:['runs'],queryFn:()=>api.listRuns()});
-  const [sequence,setSequence]=useState(runRequest?.sequence??(isDemo()?DEMO_ENZYME_SEQUENCE:''));
+  const [sequence,setSequence]=useState(isDemo()?DEMO_ATLAS_SEQUENCE:runRequest?.sequence??'');
   const [type,setType]=useState<'protein'|'dna'|'rna'>('protein');
   const [operation,setOperation]=useState('atlas');
-  const [atlasQuery,setAtlasQuery]=useState(isDemo()?'P00918':'');
+  const [atlasQuery,setAtlasQuery]=useState(isDemo()?DEMO_ATLAS_QUERY:'');
   const [similar,setSimilar]=useState(false);
   const [host,setHost]=useState('b_subtilis');
-  const [start,setStart]=useState(1),[end,setEnd]=useState(runRequest?.sequence.length??(isDemo()?544:1));
+  const [start,setStart]=useState(1),[end,setEnd]=useState(isDemo()?DEMO_ATLAS_SEQUENCE.length:runRequest?.sequence.length??1);
   const [job,setJob]=useState('');
   const [query,setQuery]=useState('');
   const [lookup,setLookup]=useState<Awaited<ReturnType<typeof api.lookup>>['candidates']>([]);
@@ -40,6 +40,10 @@ export function Tools() {
     setExportRows([]);
     setFasta('');
     setError('');
+    if(isDemo()&&type==='protein'&&operation==='atlas'&&atlasQuery===DEMO_ATLAS_QUERY&&sequence===DEMO_ATLAS_SEQUENCE&&!similar){
+      const example=demo.atlas(DEMO_ATLAS_QUERY);setAtlas(example);setStructure(example.structure);setResult(example.metadata!);
+      setFasta(`>${String(example.metadata!.accession)}\n${DEMO_ATLAS_SEQUENCE}\n`);
+    }
   },[sequence,type,operation,atlasQuery,similar,host,start,end]);
   const perform=async(action:()=>Promise<void>)=>{setBusy(true);setError('');try{await action();}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setBusy(false);}};
   const loadRun=async(id:string)=>{
@@ -75,7 +79,7 @@ export function Tools() {
   return <>
     <main id="main-content" className="page-shell tools-workspace">
       <header className="tools-heading"><div><h1>Models & Tools</h1><p>{zh?'导入序列，调用工具，检查并导出结果。':'Import a sequence, run a tool, inspect and export its result.'}</p></div><Link to="/workbench">{zh?'打开酶设计工作区':'Open enzyme workspace'} ↗</Link></header>
-      {isDemo()&&<p className="tools-notice">{zh?'示例结构与 Atlas 信息可重复查看；区段提取、翻译与同义密码子设计在本地执行，不运行新预测。':'Repeat the saved WT structure and P00918 Atlas case. Region extraction, translation and synonymous coding design run locally; no new predictions.'}</p>}
+      {isDemo()&&<div className="tools-notice"><p>{zh?'结构展示案例：UPI000036401E，260个残基，Atlas 已存储预测结构。可重复旋转、缩放和导出，不运行新结构预测。':'Structure example: UPI000036401E · 260 residues · stored Atlas prediction. Rotate, zoom and export repeatedly; no new folding.'}</p><button className="small" disabled={busy} onClick={()=>{setSequence(DEMO_ATLAS_SEQUENCE);setAtlasQuery(DEMO_ATLAS_QUERY);setOperation('atlas');setType('protein');setSimilar(false);setStart(1);setEnd(DEMO_ATLAS_SEQUENCE.length);setJob('');}}>{zh?'载入结构示例':'Load structure example'} ↗</button></div>}
       <div className="tools-operation-grid">
         <section className="tools-input" aria-labelledby="tools-sequence">
           <h2 id="tools-sequence">{zh?'序列输入':'Sequence input'}</h2>
@@ -89,12 +93,12 @@ export function Tools() {
           <div className="tools-action-settings"><h2>{zh?'选择工具':'Choose a tool'}</h2>
             <select aria-label={zh?'工具':'Tool'} value={operation} disabled={busy} onChange={e=>setOperation(e.target.value)}>
               <option value="atlas">ESM Atlas · {zh?"蛋白信息与结构":"Protein information & structure"}</option>
-              <option value="codon">{zh?'宿主密码子优化':'Host codon optimization'}</option><option value="translate">{zh?'DNA / RNA 翻译':'DNA / RNA translation'}</option><option value="region">{zh?'提取指定成熟区段':'Extract specified mature region'}</option><option value="inspect_structure">{zh?'查看输入 WT 结构':'Inspect supplied WT structure'}</option><option value="predict_structure" disabled={!foldReady}>ESMFold2 {foldReady?'':(zh?'· 未配置':'· Not configured')}</option>
+              <option value="codon">{zh?'宿主密码子优化':'Host codon optimization'}</option><option value="translate">{zh?'DNA / RNA 翻译':'DNA / RNA translation'}</option><option value="region">{zh?'提取指定成熟区段':'Extract specified mature region'}</option><option value="inspect_structure">{isDemo()?(zh?'查看已存储示例结构':'Inspect stored example structure'):(zh?'查看输入 WT 结构':'Inspect supplied WT structure')}</option><option value="predict_structure" disabled={!foldReady}>ESMFold2 {foldReady?'':(zh?'· 未配置':'· Not configured')}</option>
             </select>
             {operation==='atlas'&&<><label>{zh?'UniProt ID / Atlas hash（或使用上方序列）':'UniProt ID / Atlas hash (or use the sequence above)'}<input disabled={busy} value={atlasQuery} onChange={e=>setAtlasQuery(e.target.value)} placeholder="P01308"/></label><label className="atlas-similarity-option"><input type="checkbox" disabled={busy} checked={similar} onChange={e=>setSimilar(e.target.checked)}/>{zh?'按序列查询 SAE 特征相似蛋白':'Find SAE feature-similar proteins from a sequence'}</label></>}
             {operation==='codon' &&<label>{zh?'表达宿主':'Expression host'}<select disabled={busy} value={host} onChange={e=>setHost(e.target.value)}>{(hosts.data??[]).map(h=><option key={h.key} value={h.key}>{h.scientific_name}</option>)}</select></label>}
             {operation==='region'&&<><div className="tools-region-fields"><label>{zh?'起始位点（含）':'Start (inclusive)'}<input type="number" disabled={busy} min={1} max={sequence.length} value={start} onChange={e=>setStart(Number(e.target.value))}/></label><label>{zh?'结束位点（含）':'End (inclusive)'}<input type="number" disabled={busy} min={start} max={sequence.length} value={end} onChange={e=>setEnd(Number(e.target.value))}/></label></div><p>{zh?'按你指定的编号提取，不推断信号肽或切割位点；不会替换运行中的序列。':'Uses your residue interval; does not predict signal peptides or cleavage sites, or replace an active run.'}</p></>}
-            {operation==='inspect_structure'&&<p>{zh?'仅显示与当前序列完全对应的已提供 WT 骨架。预测新结构请使用 ESMFold2。':'Displays the supplied WT backbone only when it matches this sequence. Use ESMFold2 for new predictions.'}</p>}
+            {operation==='inspect_structure'&&<p>{isDemo()?(zh?'显示与当前序列对应的已保存示例结构，不运行新预测。':'Displays the stored structure matching this example sequence; no new folding.'):(zh?'仅显示与当前序列完全对应的已提供 WT 骨架。预测新结构请使用 ESMFold2。':'Displays the supplied WT backbone only when it matches this sequence. Use ESMFold2 for new predictions.')}</p>}
             <button className="primary" disabled={busy||(!sequence&&!(operation==='atlas'&&atlasQuery.trim()))||(operation==='predict_structure'&&!foldReady)} onClick={run}>{busy?(zh?'正在调用…':'Running…'):(zh?'运行工具':'Run tool')} ↗</button>
           </div>
         </section>
@@ -112,7 +116,7 @@ export function Tools() {
           {result&&<dl className="tools-result-values">{Object.entries(result).filter(([key,v])=>key!=='sequence'&&typeof v!=='object').map(([key,value])=><div key={key}><dt>{key.replace(/_/g,' ')}</dt><dd>{String(value)}</dd></div>)}</dl>}
           {fasta&&<><pre className="tools-sequence-result">{fasta}</pre><button onClick={()=>downloadText(fasta,'enzora-tool-result.fasta')}>FASTA ↗</button></>}
           {!!exportRows.length&&<button onClick={()=>downloadText(serializeCsv(exportRows,['organism_key','scientific_name','optimized_cds_with_stop','gc_fraction']),'enzora-tool-result.csv','text/csv;charset=utf-8')}>CSV ↗</button>}
-          <div className="tools-assistant-context"><h3>Enzora Assistant</h3><label>{zh?'对话关联的运行':'Run context for chat'}<select value={job} disabled={busy} onChange={e=>void loadRun(e.target.value)}><option value="">{zh?'当前输入序列':'Current input sequence'}</option>{(runs.data??[]).filter(r=>r.status==='success'||r.status==='running').map(r=><option key={r.id} value={r.id}>{r.config_summary?.sequence_name??r.id}</option>)}</select></label><p>{zh?'例如：“提取 65–544 区段”或“查看 WT 结构”。要调整筛选配平，请选择正在评分的运行。':'Try “Extract residues 65–544” or “Show the WT structure”. Choose a scoring run to change its balance.'}</p></div>
+          <div className="tools-assistant-context"><h3>Enzora Assistant</h3><label>{zh?'对话关联的运行':'Run context for chat'}<select value={job} disabled={busy} onChange={e=>void loadRun(e.target.value)}><option value="">{zh?'当前输入序列':'Current input sequence'}</option>{(runs.data??[]).filter(r=>r.status==='success'||r.status==='running').map(r=><option key={r.id} value={r.id}>{r.config_summary?.sequence_name??r.id}</option>)}</select></label><p>{zh?'可以询问当前结构，或指定需要提取的残基区间。筛选任务的蛋白与此 Atlas 案例是不同序列。':'Ask about this structure, or specify a residue interval. The screening WT and this Atlas example are different sequences.'}</p></div>
         </section>
       </div>
       <details className="tools-model-catalog"><summary>{zh?'已配置模型与可用状态':'Configured models & availability'}</summary>{catalog.isError&&<ErrorNote text={catalog.error.message}/>}<div>{(catalog.data??[]).map(tool=><article key={tool.name}><strong>{tool.name}</strong><Badge kind={tool.health.available?'ok':'warn'}>{tool.health.available?(zh?'可用':'Ready'):(zh?'未配置':'Not configured')}</Badge><p>{tool.description}</p></article>)}</div></details>

@@ -460,6 +460,7 @@ def demo_chat(payload: DemoChatBody, request: Request) -> dict[str, str]:
         case=json.loads(case_path.read_text())
         context={
             'case':case['provenance'],'candidate_count':len(case['pool']),
+            'atlas_example':{'accession':case['atlas']['metadata']['accession'],'residues':case['atlas']['metadata']['sequence_length'],'source':'stored ESM Atlas predicted structure; distinct from the screening WT','has_structure':bool(case['atlas'].get('structure'))},
             'sequence_length':len(case['request']['sequence']),
             'selection':case['request']['selection'],
             'effective_global_weights':{key:case['request']['selection']['weights'][key]*case['request']['selection']['confidence'][key]/sum(case['request']['selection']['weights'][k]*case['request']['selection']['confidence'][k] for k in ('activity','ph','stability')) for key in ('activity','ph','stability')},
@@ -467,7 +468,7 @@ def demo_chat(payload: DemoChatBody, request: Request) -> dict[str, str]:
             'top_candidates':[{key:row[key] for key in ['mutation','activity_log10','ph_opt','ddg','final_score']} for row in case['pool'][:10]],
             'tools':['Exact Workspace button labels: Build library (repeat construction), Start Screening (repeat screening), Select Top-K & generate report (repeat selection). There is no separate Replay button.',
                 'Inspect supplied WT structure (544 residues); rotate, zoom, switch Cartoon/Atoms and export PDB',
-                'Inspect the saved P00918 Atlas reference and SAE features; this human CA2 is distinct from the WT',
+                'Use Load structure example in Model&Tools to inspect the saved Atlas structure, rotate, zoom and export PDB; the example is distinct from the screening WT',
                 'Extract a user-specified inclusive residue interval locally, e.g. 65–544',
                 'Design synonymous CDS for E. coli, B. subtilis or S. cerevisiae, then translate it back',
                 'Import one FASTA/CSV/JSON sequence; export Top-K and report repeatedly'],

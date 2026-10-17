@@ -28,7 +28,10 @@ import type {
 const WT = "MRNSTKTSLLLAGLCTAAQMVFVTHASAAAMNTRNTRSKQRAPFGVSSSVKPRLDLIEQAPNPAYDRHPACITLPERTCRHPLTDLEANEQLGRCEDSVKNRFDRVIPFLQVVAGIPLGLDYVTRVQELAQSSLGHTLPEELLKDNWISGHNLKGIFGYATAKALTAATEQFSRKIMSEKDDSASAIGFFLDCGFHAVDISPCADGRLKGLLPYILRLPLTAFTYRKAYAGSMFDIEDDLAQWEKNELRRYREGVPNTADQPTRYLKIAVYHFSTSDPTHSGCAAHGSNDRAALEAALTQLMKFREAVENAHCCGASIDILLIGVDTDTDAIRVHIPDSKGFLNPYRYVDNTVTYAQTLHLAPDEARVIIHEAILNANRSDGWAKGNGVASEGMRRFIGQLLINNLSQIDYVVNRHGGRYPPNDIGHAERYISVGDGFDEVQIRNLAYYAHLDTVEENAIDVDVGIKIFTKLNLSRGLPIPIAIHYRYDPNVPGSRERTVVKARRIYNAIKERFSSLDEQNLLQFRLSVQAQDIGSPIEEVASA";
 export { WT as DEMO_ENZYME_SEQUENCE };
 export const DEMO_CASE_ID = "demo-recorded-1000";
-const recorded = savedCase as unknown as {request:RunRequest;pool:Candidate[];umap:{method:string;points:Record<string,unknown>[]};generation:Record<string,unknown>;analysis:string;report:string;balance_decision:{reason:string};structure:ProteinStructure;atlas:AtlasRecord};
+const recorded = savedCase as unknown as {request:RunRequest;pool:Candidate[];umap:{method:string;points:Record<string,unknown>[]};generation:Record<string,unknown>;analysis:string;report:string;balance_decision:{reason:string};structure:ProteinStructure;atlas:AtlasRecord;atlas_reference:AtlasRecord};
+export const DEMO_ATLAS_QUERY = String(recorded.atlas.metadata!.protein_hash);
+export const DEMO_ATLAS_SEQUENCE = String(recorded.atlas.metadata!.sequence);
+
 
 // Kyte-Doolittle hydropathy (subset used by the demo), residue volumes, charge.
 const HYDRO: Record<string, number> = {
@@ -1077,18 +1080,22 @@ export const demo = {
   lookupResolve(accession:string,_source:string):LookupResolved {
     if(accession!=='P00918')throw new Error('The saved Demo database record is P00918.');
     return {accession,name:'Carbonic anhydrase 2',organism:'Homo sapiens',taxid:9606,
-      sequence:String(recorded.atlas.metadata!.sequence),url:'https://www.uniprot.org/uniprotkb/P00918/entry',license:'CC BY 4.0'};
+      sequence:String(recorded.atlas_reference.metadata!.sequence),url:'https://www.uniprot.org/uniprotkb/P00918/entry',license:'CC BY 4.0'};
   },
 
   atlas(query:string,similar=false):AtlasRecord {
     const q=query.trim();
-    if(!["P00918",String(recorded.atlas.metadata?.protein_hash),String(recorded.atlas.metadata?.sequence),"carbonic anhydrase"].some(value=>value.toLowerCase()===q.toLowerCase()))throw new Error("Demo includes the saved P00918 Atlas reference. Enter P00918; use an invitation for other live queries.");
-    if(similar)throw new Error("The saved P00918 case has no recorded similarity hits. Turn off similarity to inspect its metadata and SAE features.");
-    return JSON.parse(JSON.stringify(recorded.atlas));
+    if(similar)throw new Error("Demo replays saved records. Turn off similarity to inspect the stored structure and SAE features.");
+    for(const [record,aliases]of [[recorded.atlas,[DEMO_ATLAS_QUERY,String(recorded.atlas.metadata!.accession),DEMO_ATLAS_SEQUENCE]],
+      [recorded.atlas_reference,['P00918',String(recorded.atlas_reference.metadata!.protein_hash),String(recorded.atlas_reference.metadata!.sequence),'carbonic anhydrase']]] as [AtlasRecord,string[]][]){
+      if(aliases.some(value=>value.toLowerCase()===q.toLowerCase()))return JSON.parse(JSON.stringify(record));
+    }
+    throw new Error("Load the stored structure example (UPI000036401E), or enter P00918 for the earlier metadata-only reference. Other live queries require an invitation.");
   },
   sequenceTool(tool:string,sequence:string,args:Record<string,number>={}):{prepared_sequence?:{start:number;end:number;sequence:string};structure?:ProteinStructure} {
     const protein=cleanSequence(sequence).body;
     if(tool==='inspect_structure') {
+      if(protein===DEMO_ATLAS_SEQUENCE)return {structure:recorded.atlas.structure};
       if(protein!==WT)throw new Error("The saved WT structure matches only the 544-residue example. Load the example to inspect it; no new folding occurs in Demo.");
       return {structure:recorded.structure};
     }
