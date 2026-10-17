@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Link, Navigate, Route, Routes } from 'react-router-dom';
 import { Header } from './Header';
 import iddlabLogo from '../../../../../resource/models/iddlab-logo.svg';
-import thetaLogo from '../../../../../resource/models/theta-logo.svg';
 import enzoraLogo from '../../../../../resource/models/enzora-logo.svg';
 import { Workbench } from '../features/workbench/Workbench';
 import { Wizard } from '../features/experiment/Wizard';
@@ -94,7 +93,6 @@ export default function App() {
             <section className="teams-acknowledgment" aria-labelledby="teams-ack"><div><h2 id="teams-ack">Acknowledgment</h2></div>
               <div className="acknowledgment-track" tabIndex={0} aria-label={lang==='zh'?'致谢机构，支持横向滚动':'Acknowledged groups; scroll horizontally'}>
                 <a href="https://github.com/Intelligent-Drug-Discovery-Lab" target="_blank" rel="noopener noreferrer"><img src={iddlabLogo} alt="Intelligent Drug Discovery Lab" width="92" height="92"/><div><h3>IDDLab</h3><p>{lang==='zh'?'感谢科学指导与项目支持。':'For scientific guidance and project support.'}</p></div><span aria-hidden="true">↗</span></a>
-                <a href="https://www.thetateam.net/" target="_blank" rel="noopener noreferrer"><img src={thetaLogo} alt="Theta Team · AI + Medicine" width="184" height="92"/><div><h3>Theta Team</h3><p>{lang==='zh'?'感谢科学指导与项目支持。':'For scientific guidance and project support.'}</p></div><span aria-hidden="true">↗</span></a>
               </div>
             </section>
             <section className="teams-contact" aria-labelledby="teams-contact-title">

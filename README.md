@@ -157,7 +157,7 @@ Enzora combines the following projects. Their source, weights and licences remai
 - [UMAP](https://github.com/lmcinnes/umap), [Plotly](https://github.com/plotly/plotly.js) and [NGL](https://github.com/nglviewer/ngl): sequence and molecular visualization.
 - [Kazusa Codon Usage Database](https://www.kazusa.or.jp/codon/): host-specific codon usage.
 
-We thank [IDDLab](https://github.com/Intelligent-Drug-Discovery-Lab) and [Theta Team](https://www.thetateam.net/) for scientific guidance and project support.
+We thank [IDDLab](https://github.com/Intelligent-Drug-Discovery-Lab) for scientific guidance and project support.
 
 ## License
 

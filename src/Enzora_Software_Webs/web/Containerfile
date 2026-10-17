@@ -6,7 +6,7 @@ RUN npm ci
 COPY src/Enzora_Software_Webs/web/ .
 COPY resource/fonts/ /app/resource/fonts/
 COPY resource/models/ /app/resource/models/
-COPY resource/docs/anewomni-protein.svg /app/resource/docs/anewomni-protein.svg
+COPY resource/docs/ /app/resource/docs/
 RUN npm test && npm run build
 
 FROM docker.io/library/nginx:stable-alpine
