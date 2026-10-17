@@ -1,5 +1,7 @@
 # Enzora
 
+![Enzora mutation, screening and iterative optimization workflow](resource/docs/Software_Fig1_Enzora_Agent_Workflow.svg)
+
 **Automated mutation, screening and optimization for enzyme engineering.**
 
 [Open the workspace](https://enzora-agent.com/) · [Explore the demo](https://enzora-agent.com/?demo=1#/workbench) · [Phenom model](https://github.com/YuzhangLi2281/Phenom)
