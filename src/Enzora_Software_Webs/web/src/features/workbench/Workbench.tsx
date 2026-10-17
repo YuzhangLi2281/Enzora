@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { DEMO_ENZYME_SEQUENCE } from "../../shared/demo/backend";
+import { DEMO_CASE_ID, DEMO_ENZYME_SEQUENCE } from "../../shared/demo/backend";
 import { api, isDemo } from "../../shared/api/client";
 import { rememberRequest } from "../runs/requestStorage";
 import { useRun } from "../runs/useRun";
@@ -63,7 +63,7 @@ export function Workbench() {
   const { lang, sessionId, runRequest, setRunRequest } = useApp();
   const zh = lang === "zh";
   const [params, setParams] = useSearchParams();
-  const jobId = params.get("job");
+  const jobId = params.get("job") || (isDemo()?DEMO_CASE_ID:null);
   const run = useRun(jobId);
   const [sequence, setSequence] = useState(() => isDemo() ? DEMO_ENZYME_SEQUENCE : "");
   const [name, setName] = useState(() => isDemo() ? "Carbonic anhydrase" : "");
@@ -71,7 +71,7 @@ export function Workbench() {
   const [size, setSize] = useState(1000);
   const [order, setOrder] = useState(1);
   const [tab, setTab] = useState(0);
-  const [selection, setSelection] = useState(() => defaultSelection(isDemo() ? 7.5 : null));
+  const [selection, setSelection] = useState(() => defaultSelection(isDemo() ? 9 : null));
   const [evidencePicked, setEvidencePicked] = useState("");
   const [host, setHost] = useState("e_coli");
   const [busy, setBusy] = useState(false);
@@ -315,6 +315,12 @@ export function Workbench() {
       go(progress.next_phase);
       run.retry();
     });
+  const replayPhase=(phase:number)=>void perform(async()=>{
+    if(!jobId)return;
+    const value=await api.replayDemo(jobId,phase,selection);
+    setParams(p=>{const next=new URLSearchParams(p);next.set('job',value.job_id);return next;},{replace:true});
+    go(phase);
+  });
   const exportReport = () =>
     void perform(async () => {
       if (!jobId) return;
@@ -494,8 +500,8 @@ export function Workbench() {
                       <p className="small dim">
                         {isDemo()
                           ? zh
-                            ? "示例蛋白与底物仅用于演示，不代表真实实验。"
-                            : "Project example: 544 aa carbonic anhydrase with CO₂. Demo scores are simulated."
+                            ? "回放544 aa碳酸酐酶的已保存预测，不重新运行模型；不是湿实验结果。"
+                            : "Saved 544 aa carbonic-anhydrase case with CO₂. Replay stored predictions; no new inference."
                           : zh
                             ? "活性预测对应当前酶序列与底物的组合。"
                             : "Activity predictions are specific to this enzyme–substrate pair."}
@@ -832,8 +838,8 @@ export function Workbench() {
             <div className="section-bottom">
 <button
                 className="primary"
-                disabled={busy || !(waiting && phase === 1)}
-                onClick={next}
+                disabled={busy || !((waiting && phase === 1)||(isDemo()&&run.meta?.status==='success'))}
+                onClick={()=>isDemo()&&run.meta?.status==='success'?replayPhase(2):next()}
               >
                 {zh ? "启动虚拟筛选" : "Start Screening"} ↗
               </button>
@@ -856,7 +862,7 @@ export function Workbench() {
               <div className="output-intro">
                 <h2>{zh?'突变分布 UMAP 可视化':'Mutation distribution · UMAP'}</h2>
                 <p>{zh?'拖动或缩放地图，查看候选序列的分布。筛选 Top-K 后，检查蓝色标出的突变位点，并导出报告、蛋白序列或适合目标宿主的编码 DNA。':'Drag or zoom the map to explore your candidates. Select Top-K, inspect the mutations highlighted in blue, and export the report, protein sequences or host-optimized coding DNA.'}</p>
-                {waiting&&phase===2&&<button className="primary output-select" disabled={busy} onClick={next}>{zh?'筛选 Top-K 并生成报告':'Select Top-K & generate report'} ↗</button>}
+                {((waiting&&phase===2)||(isDemo()&&run.meta?.status==='success'))&&<button className="primary output-select" disabled={busy} onClick={()=>isDemo()&&run.meta?.status==='success'?replayPhase(3):next()}>{zh?'筛选 Top-K 并生成报告':'Select Top-K & generate report'} ↗</button>}
                 <div className="output-metrics">
                   <div>
                     <strong>
@@ -891,8 +897,8 @@ export function Workbench() {
                 <p className="small dim">
                   {isDemo()
                     ? zh
-                      ? "演示投影不是 UMAP，全部分数均为模拟。"
-                      : "Demo projection is not UMAP. All scores are simulated."
+                      ? "示例使用真实千候选任务已保存的 UMAP 和预测。自定义输入为本地模拟，不运行新模型。"
+                      : "The saved example uses real UMAP coordinates and predictions. Custom inputs are local simulations, not new model inference."
                     : zh
                       ? "真实 UMAP 保留坐标几何；同义密码子优化不改变蛋白序列。"
                       : "UMAP preserves coordinate geometry. Synonymous codon optimization preserves the protein."}

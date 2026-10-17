@@ -1,10 +1,14 @@
-/** Simulated backend for UI preview without a GPU server (Demo mode).
- *  Data shapes mirror the real backend exactly; science values are illustrative
- *  only and never presented as real predictions. */
+/** Repeatable browser workspace: the permanent carbonic-anhydrase case uses
+ * saved model predictions and UMAP coordinates. Custom inputs use labelled
+ * illustrative simulation. Only Assistant conversation reaches the public API. */
 
 import { applyMutation, cleanSequence, translateNucleotide } from "./sequence";
-import { rerankCandidates } from "../../features/results/rerank";
+import savedCase from "../../../../../../resource/demo-case.json";
+import { candidateScoreEvidence, rerankCandidates } from "../../features/results/rerank";
 import type {
+  AtlasRecord,
+  ProteinStructure,
+  BioArtifact,
   Candidate,
   ClassifyResult,
   CodonOptimizeResponse,
@@ -23,6 +27,8 @@ import type {
 
 const WT = "MRNSTKTSLLLAGLCTAAQMVFVTHASAAAMNTRNTRSKQRAPFGVSSSVKPRLDLIEQAPNPAYDRHPACITLPERTCRHPLTDLEANEQLGRCEDSVKNRFDRVIPFLQVVAGIPLGLDYVTRVQELAQSSLGHTLPEELLKDNWISGHNLKGIFGYATAKALTAATEQFSRKIMSEKDDSASAIGFFLDCGFHAVDISPCADGRLKGLLPYILRLPLTAFTYRKAYAGSMFDIEDDLAQWEKNELRRYREGVPNTADQPTRYLKIAVYHFSTSDPTHSGCAAHGSNDRAALEAALTQLMKFREAVENAHCCGASIDILLIGVDTDTDAIRVHIPDSKGFLNPYRYVDNTVTYAQTLHLAPDEARVIIHEAILNANRSDGWAKGNGVASEGMRRFIGQLLINNLSQIDYVVNRHGGRYPPNDIGHAERYISVGDGFDEVQIRNLAYYAHLDTVEENAIDVDVGIKIFTKLNLSRGLPIPIAIHYRYDPNVPGSRERTVVKARRIYNAIKERFSSLDEQNLLQFRLSVQAQDIGSPIEEVASA";
 export { WT as DEMO_ENZYME_SEQUENCE };
+export const DEMO_CASE_ID = "demo-recorded-1000";
+const recorded = savedCase as unknown as {request:RunRequest;pool:Candidate[];umap:{method:string;points:Record<string,unknown>[]};generation:Record<string,unknown>;analysis:string;report:string;balance_decision:{reason:string};structure:ProteinStructure;atlas:AtlasRecord};
 
 // Kyte-Doolittle hydropathy (subset used by the demo), residue volumes, charge.
 const HYDRO: Record<string, number> = {
@@ -242,6 +248,22 @@ function rankedPool(
   weights: { ph: number; activity: number; stability: number },
   request: RunRequest,
 ): Candidate[] {
+  if (request.sequence === WT && Object.keys(request.mutation?.counts ?? {}).join() === '1' && Number(request.mutation?.counts[1]) <= 1000) {
+    request.selection = {...request.selection, reference:recorded.request.selection.reference,
+      confidence:request.selection.confidence ?? recorded.request.selection.confidence,
+      score_policy:{...recorded.request.selection.score_policy!,target_ph:request.selection.target_ph}};
+    const rows = recorded.pool.slice(0,request.mutation!.counts[1]).map(row=>{
+      const candidate = {...row};
+      const evidence = candidateScoreEvidence(candidate,{...request.selection,weights})!;
+      candidate.final_score=evidence.score;
+      candidate.passed=(request.selection.min_activity_log10===null||Number(candidate.activity_log10)>=request.selection.min_activity_log10)
+        &&(request.selection.target_ph===null||request.selection.ph_tolerance===null||Math.abs(Number(candidate.ph_opt)-request.selection.target_ph)<=request.selection.ph_tolerance)
+        &&(request.selection.stability_operator==='none'||request.selection.stability_threshold===null||
+          (request.selection.stability_operator==='le'?Number(candidate.ddg)<=request.selection.stability_threshold:Number(candidate.ddg)>=request.selection.stability_threshold));
+      return candidate;
+    });
+    return rows.sort((a,b)=>Number(b.passed)-Number(a.passed)||Number(b.final_score)-Number(a.final_score));
+  }
   const requested = Object.values(
     request.mutation?.counts ?? { 1: RAW_CANDIDATES.length },
   ).reduce((a, b) => a + b, 0);
@@ -270,7 +292,7 @@ function rankedPool(
           break;
         const original = request.sequence[extra - 1];
         substitutions.push(
-          `${original}${extra}${alphabet[(alphabet.indexOf(original) + j) % 20]}`,
+          `${original}${extra}${alphabet[(alphabet.indexOf(original) + j) % 20]}`
         );
       }
       if (substitutions.length !== order) continue;
@@ -285,7 +307,7 @@ function rankedPool(
           Math.cos(index * 0.11) * 2 - 0.8,
           true,
         ],
-        request.sequence,
+        request.sequence
       );
       row.mutation = mutation;
       let seq = request.sequence;
@@ -295,7 +317,7 @@ function rankedPool(
     }
     if (seen.size !== count)
       throw new Error(
-        "Demo mutation quota exceeds the available design space.",
+        "Demo mutation quota exceeds the available design space."
       );
   }
   for (const row of raw) {
@@ -349,13 +371,14 @@ interface DemoJob {
   result: RunResult;
   pool: Candidate[];
   weights: { ph: number; activity: number; stability: number };
+  recorded?: boolean;
 }
 const jobs = new Map<string, DemoJob>();
 try {
   const saved = JSON.parse(
     sessionStorage.getItem("fea_demo_jobs") ?? "[]",
   ) as DemoJob[];
-  for (const job of saved) {
+  for (const job of saved.slice(-3)) {
     if (!job.request || !job.meta?.id || !Array.isArray(job.pool)) continue;
     // A browser reload stops local timers. Restore an honest terminal state.
     if (job.meta.status === "queued" || job.meta.status === "running") {
@@ -369,10 +392,12 @@ try {
   /* A private browser or an older demo cache can start fresh. */
 }
 function persistJobs() {
+  for(const [id,job]of jobs)if(id!==DEMO_CASE_ID&&job.meta.status!=='running'&&job.meta.status!=='queued'&&jobs.size>4){jobs.delete(id);listeners.delete(id);}
+
   try {
     sessionStorage.setItem(
       "fea_demo_jobs",
-      JSON.stringify([...jobs.values()].slice(-20)),
+      JSON.stringify([...jobs.values()].filter(job=>!job.recorded).slice(-3))
     );
   } catch {
     /* optional cache */
@@ -380,7 +405,7 @@ function persistJobs() {
 }
 const listeners = new Map<string, ((evt: RunEvent) => void)[]>();
 let jobCounter = 0;
-let timers: ReturnType<typeof setTimeout>[] = [];
+
 
 function metaFor(
   jobId: string,
@@ -479,8 +504,8 @@ function demoResult(job: DemoJob, request: RunRequest): RunResult {
     stages: [],
     selected,
     candidate_pool_size: job.pool.length,
-    wt_ph: 7.5,
-    markdown_report: `# Enzora Demo Report\n\nDemo run for **${request.sequence_name}**. All numbers are illustrative UI preview data, not real predictions.`,
+    wt_ph: job.recorded ? recorded.request.selection.reference!.ph_opt : 7.5,
+    markdown_report: job.recorded ? `# Enzora saved-case replay\n\nSaved model predictions from run 626ac5ab7ce0; current selection and ranking are replayed locally, not new inference.\n\nSelected: ${selected.map(row=>row.mutation).join(", ")}.\n\nAlkaline stability at pH 8–10 has not been experimentally verified.` : `# Enzora Demo Report\n\nDemo run for **${request.sequence_name}**. All numbers are illustrative UI preview data, not real predictions.`,
     figures: [
       "01_final_score.svg",
       "02_activity_vs_stability.svg",
@@ -523,6 +548,7 @@ function demoResult(job: DemoJob, request: RunRequest): RunResult {
 /** Preview follows the same explicit Next barriers as the real run. */
 function playPhase(job: DemoJob, phase: number) {
   const id = job.meta.id;
+  job.meta.stages = job.meta.stages.filter(stage=>!((phase===1&&stage.index<=1)||(phase===2&&stage.index>=2&&stage.index<=4)||(phase===3&&stage.index>=5)));
   job.meta.status = "running";
   job.meta.started_at ??= Date.now() / 1000;
   job.meta.progress = {
@@ -531,12 +557,13 @@ function playPhase(job: DemoJob, phase: number) {
     saved_sequences: phase === 1 ? 0 : job.pool.length,
     target_sequences: job.pool.length,
   };
+  if(phase===1)job.meta.generation={saved_sequences:0,target_sequences:job.pool.length};
   emit(id, "progress", job.meta.progress);
   const indices =
     phase === 1 ? [0, 1] : phase === 2 ? [2, 3, 4] : [5, 6, 7, 8, 9, 10];
   if (phase === 1)
     for (let i = 1; i <= 10; i++)
-      timers.push(
+      void (
         setTimeout(() => {
           if (job.meta.status !== "running") return;
           job.meta.progress = {
@@ -545,11 +572,17 @@ function playPhase(job: DemoJob, phase: number) {
             saved_sequences: Math.round((job.pool.length * i) / 10),
             target_sequences: job.pool.length,
           };
+          if(job.recorded) {
+            const landscape=recorded.generation.llr_landscape as {bins:number[];frames:{saved:number}[]};
+            job.meta.generation=job.pool.length===1000?{...recorded.generation,saved_sequences:job.meta.progress.saved_sequences,
+              llr_landscape:{...landscape,frames:landscape.frames.filter(frame=>frame.saved<=job.meta.progress!.saved_sequences!)}}:
+              {saved_sequences:job.meta.progress.saved_sequences,target_sequences:job.pool.length};
+          }
           emit(id, "progress", job.meta.progress);
-        }, i * 330),
+        }, i * 330)
       );
   indices.forEach((index, i) =>
-    timers.push(
+    void (
       setTimeout(
         () => {
           if (job.meta.status !== "running") return;
@@ -562,13 +595,14 @@ function playPhase(job: DemoJob, phase: number) {
           emit(id, "stage_completed", { index, stage: STAGES[index] });
         },
         phase === 1 ? 3600 + i * 100 : (i + 1) * 800,
-      ),
-    ),
+      )
+    )
   );
-  timers.push(
+  void (
     setTimeout(
       () => {
         if (job.meta.status !== "running") return;
+        if(job.recorded&&job.pool.length===1000) job.meta.generation={...recorded.generation};
         if (phase < 3) {
           job.meta.progress = {
             phase,
@@ -593,14 +627,25 @@ function playPhase(job: DemoJob, phase: number) {
         }
       },
       phase === 1 ? 4000 : indices.length * 800 + 300,
-    ),
+    )
   );
 }
 
 const ANALYSIS_TEXT = `Demo analysis: compare the illustrative activity, pH and stability scores in the candidate table. Adjusting the weights changes the local ranking without rerunning models. These values demonstrate interface behavior only; they are not biological predictions or experimental evidence.`;
 
+// This permanent baseline is reconstructed on every page load, independent of session cache.
+const baselineRequest=JSON.parse(JSON.stringify(recorded.request)) as RunRequest;
+const baseline:DemoJob={request:baselineRequest,meta:metaFor(DEMO_CASE_ID,baselineRequest,'success'),
+ pool:recorded.pool.map(row=>({...row})),weights:{...baselineRequest.selection.weights},recorded:true,result:null as unknown as RunResult};
+baseline.result=demoResult(baseline,baselineRequest);
+baseline.meta={...baseline.meta,result:baseline.result,applied_selection:baselineRequest.selection,
+ generation:{...recorded.generation},progress:{phase:3,status:'success',saved_sequences:1000,target_sequences:1000},
+ stages:STAGES.map((stage,index)=>({stage,index,finished_at:Date.now()/1000,seconds:0}))};
+jobs.set(DEMO_CASE_ID,baseline);
+
 export const demo = {
   submitRun(request: RunRequest): Promise<{ job_id: string }> {
+    request=JSON.parse(JSON.stringify(request)) as RunRequest;
     jobCounter += 1;
     const jobId = `demo-${Date.now()}-${jobCounter}`;
     const weights = { ...(request.selection?.weights ?? DEFAULT_WEIGHTS) };
@@ -609,10 +654,12 @@ export const demo = {
       request,
       meta: metaFor(jobId, request, "queued"),
       pool,
+      recorded:request.sequence===WT && pool.every(row=>row.score_normalization==="input_reference_three_model_llm_v3"),
       weights,
       result: null as unknown as RunResult,
     };
     job.result = demoResult(job, request);
+    job.meta.applied_selection=job.request.selection;
     jobs.set(jobId, job);
     persistJobs();
     if (request.runtime.phase_control) {
@@ -620,13 +667,13 @@ export const demo = {
       return Promise.resolve({ job_id: jobId });
     }
     // Legacy automatic preview is used only when phase control is explicitly absent.
-    timers.push(
+    void (
       setTimeout(() => {
         if (job.meta.status === "cancelled") return;
         job.meta.status = "running";
         job.meta.started_at = Date.now() / 1000;
         emit(jobId, "started", { job_id: jobId });
-      }, 600),
+      }, 600)
     );
     const stageStats: Record<string, Record<string, unknown>> = {
       generate_mutations: { count: request.sequence.length * 19 },
@@ -647,7 +694,7 @@ export const demo = {
     };
     const startedAt = Date.now() / 1000;
     STAGES.forEach((stage, index) => {
-      timers.push(
+      void (
         setTimeout(
           () => {
             if (job.meta.status === "cancelled") return;
@@ -668,10 +715,10 @@ export const demo = {
             });
           },
           1200 + index * 1100,
-        ),
+        )
       );
     });
-    timers.push(
+    void (
       setTimeout(
         () =>
           emit(jobId, "log_line", {
@@ -679,9 +726,9 @@ export const demo = {
             line: "[demo] scanning 684 single substitutions (GPU)",
           }),
         2400,
-      ),
+      )
     );
-    timers.push(
+    void (
       setTimeout(
         () =>
           emit(jobId, "log_line", {
@@ -689,9 +736,9 @@ export const demo = {
             line: "[demo] predicting ddG, batch=1",
           }),
         5600,
-      ),
+      )
     );
-    timers.push(
+    void (
       setTimeout(
         () => {
           if (job.meta.status === "cancelled") return;
@@ -701,11 +748,26 @@ export const demo = {
           emit(jobId, "completed", { result: job.result });
         },
         1300 + STAGES.length * 1100,
-      ),
+      )
     );
     return Promise.resolve({ job_id: jobId });
   },
 
+  replayRun(id:string,phase:number,selection:RunRequest['selection']):{job_id:string} {
+    const original=jobs.get(id);
+    if(!original||original.meta.status!=='success'||![2,3].includes(phase))throw new Error('Choose a completed Demo case and phase 2 or 3.');
+    const request=JSON.parse(JSON.stringify(original.request)) as RunRequest;
+    request.selection=JSON.parse(JSON.stringify(selection));
+    const job_id=`demo-replay-${Date.now()}-${++jobCounter}`;
+    const pool=rankedPool(request.selection.weights,request);
+    const replay:DemoJob={request,pool,weights:{...request.selection.weights},recorded:original.recorded,
+      meta:metaFor(job_id,request,'running'),result:null as unknown as RunResult};
+    replay.meta.stages=original.meta.stages.filter(stage=>stage.index<(phase===2?2:5)).map(stage=>({...stage}));
+    replay.meta.applied_selection=request.selection;
+    replay.result=demoResult(replay,request);
+    jobs.set(job_id,replay);playPhase(replay,phase);
+    return {job_id};
+  },
   advanceRun(id: string, phase: number) {
     const job = jobs.get(id);
     if (
@@ -748,14 +810,16 @@ export const demo = {
       (weights.ph > 0 && job.request.selection.target_ph === null)
     )
       throw new Error("Set a pH target and a positive effective weight.");
-    job.request.selection.weights = weights;
-    job.request.selection.confidence = confidence;
+    job.request.selection.weights = {...weights};
+    job.request.selection.confidence = {...confidence};
     const effective_weights = {
       ph: (weights.ph * confidence.ph) / total,
       activity: (weights.activity * confidence.activity) / total,
       stability: (weights.stability * confidence.stability) / total,
     };
+    job.weights={...weights};
     job.pool = rankedPool(weights, job.request);
+    job.meta.applied_selection=job.request.selection;
     persistJobs();
     return { effective_weights };
   },
@@ -772,6 +836,14 @@ export const demo = {
         resolved_candidate: job.request.candidate,
         resolved_selection: job.request.selection,
       });
+    if(rel==='llm_balance_decisions.jsonl')return JSON.stringify(job.recorded?recorded.balance_decision:{reason:'Local illustrative replay; no new model inference.'});
+    if(rel==='umap.json' && job.recorded) {
+      const byMutation=new Map(job.pool.map((row,index)=>[row.mutation,{row,index}]));
+      return JSON.stringify({...recorded.umap,points:recorded.umap.points.filter(point=>byMutation.has(String(point.mutation))).map(point=>{
+        const {row,index}=byMutation.get(String(point.mutation))!;
+        return {...point,score:row.final_score,rank:row.passed&&index<job.request.selection.top_k?index+1:null};
+      })});
+    }
     if (rel === "umap.json")
       return JSON.stringify({
         method: "Demo projection (not UMAP)",
@@ -792,11 +864,12 @@ export const demo = {
           };
         }),
       });
+    if (rel === "analysis.txt" && job.recorded)return "Saved-case explanation; not new inference.\n"+recorded.analysis;
     if (rel === "analysis.txt")
       return job.request.report.language === "zh"
         ? "演示分析：候选表展示模拟活性、最适 pH 与稳定性分数。配平系数经偏好 × 可信度归一化后参与排序；通过阈值的 Top-K 保留全部替换标记。可导出蛋白 FASTA 与宿主偏好的 CDS。此处数据仅用于检验交互，不构成模型预测或实验依据。"
         : ANALYSIS_TEXT;
-    if (rel === "report.md") return job.result.markdown_report ?? "";
+    if (rel === "report.md" || rel === "report_en.md") return job.result.markdown_report ?? "";
     throw new Error("Artifact not available in demo mode");
   },
 
@@ -830,7 +903,7 @@ export const demo = {
     if (job && job.meta.status === "success") {
       setTimeout(
         () => onEvent({ event: "completed", data: { result: job.result } }),
-        300,
+        300
       );
       setTimeout(onEnd, 500);
     }
@@ -838,7 +911,7 @@ export const demo = {
       const current = listeners.get(jobId) ?? [];
       listeners.set(
         jobId,
-        current.filter((cb) => cb !== onEvent),
+        current.filter((cb) => cb !== onEvent)
       );
     };
   },
@@ -893,7 +966,7 @@ export const demo = {
       rows = rows.filter((r) =>
         String(r.mutation)
           .toLowerCase()
-          .includes(String(params.q).toLowerCase()),
+          .includes(String(params.q).toLowerCase())
       );
     if (params.sort_by) {
       rows = [...rows].sort((a, b) => {
@@ -922,10 +995,7 @@ export const demo = {
   ): Record<string, unknown>[] {
     const job = jobs.get(jobId);
     if (!job) return [];
-    return rerankCandidates(job.pool, weights, {
-      target_ph: 7.5,
-      ph_tolerance: 1.0,
-    }) as unknown as Record<string, unknown>[];
+    return rankedPool(weights,{...job.request,selection:{...job.request.selection,weights}}) as unknown as Record<string,unknown>[];
   },
 
   classify(text: string, typeOverride?: string | null): ClassifyResult {
@@ -941,7 +1011,7 @@ export const demo = {
           : null);
     if (!type)
       throw new Error(
-        "AI input recognition needs the backend. In Demo, choose an explicit input type or load the sample.",
+        "AI input recognition needs the backend. In Demo, choose an explicit input type or load the sample."
       );
     const base: ClassifyResult = {
       type: "text",
@@ -972,8 +1042,10 @@ export const demo = {
     if (!body || [...body].some((letter) => !alphabet.includes(letter)))
       throw new Error("Invalid sequence for the selected input type.");
     const translation = type === "protein" ? null : translateNucleotide(body);
+    const record={id:"demo-1",name:name||"Demo sequence",type:type as "protein"|"dna"|"rna",sequence:body};
     return {
       ...base,
+      bioartifact:{schema:"enzora.bioartifact/1",records:[record],predictions:{},metadata:{source:"local_demo"},data:{}},
       type: type as ClassifyResult["type"],
       sequence: body,
       sequences: [body],
@@ -999,71 +1071,54 @@ export const demo = {
   },
 
   lookup(query: string): { candidates: LookupCandidate[]; warning?: string } {
-    if (/碳酸酐酶|carbonic|ca2|ca1/i.test(query)) {
-      return {
-        candidates: [
-          {
-            source: "uniprot",
-            accession: "P00918",
-            name: "Carbonic anhydrase 2",
-            gene: "CA2",
-            organism: "Homo sapiens",
-            taxid: 9606,
-            length: 260,
-            ec_numbers: ["4.2.1.1"],
-            reviewed: true,
-            url: "https://www.uniprot.org/uniprotkb/P00918/entry",
-            license: "CC BY 4.0",
-          },
-          {
-            source: "uniprot",
-            accession: "P00921",
-            name: "Carbonic anhydrase 1",
-            gene: "CA1",
-            organism: "Homo sapiens",
-            taxid: 9606,
-            length: 261,
-            ec_numbers: ["4.2.1.1"],
-            reviewed: true,
-            url: "https://www.uniprot.org/uniprotkb/P00921/entry",
-            license: "CC BY 4.0",
-          },
-          {
-            source: "uniprot",
-            accession: "P00920",
-            name: "Carbonic anhydrase 2",
-            gene: "ca2",
-            organism: "Bos taurus",
-            taxid: 9913,
-            length: 260,
-            ec_numbers: ["4.2.1.1"],
-            reviewed: true,
-            url: "https://www.uniprot.org/uniprotkb/P00920/entry",
-            license: "CC BY 4.0",
-          },
-        ],
-      };
-    }
-    return {
-      candidates: [],
-      warning: 'demo search only knows "carbonic anhydrase" — try it!',
-    };
+    if(!/碳酸酐酶|carbonic|ca2|P00918/i.test(query))return {candidates:[],warning:'The saved Demo database case is P00918 (human carbonic anhydrase 2).'};
+    return {candidates:[{source:'uniprot',accession:'P00918',name:'Carbonic anhydrase 2',gene:'CA2',organism:'Homo sapiens',taxid:9606,length:260,ec_numbers:['4.2.1.1'],reviewed:true,url:'https://www.uniprot.org/uniprotkb/P00918/entry',license:'CC BY 4.0'}]};
+  },
+  lookupResolve(accession:string,_source:string):LookupResolved {
+    if(accession!=='P00918')throw new Error('The saved Demo database record is P00918.');
+    return {accession,name:'Carbonic anhydrase 2',organism:'Homo sapiens',taxid:9606,
+      sequence:String(recorded.atlas.metadata!.sequence),url:'https://www.uniprot.org/uniprotkb/P00918/entry',license:'CC BY 4.0'};
   },
 
-  lookupResolve(accession: string, _source: string): LookupResolved {
-    return {
-      accession,
-      name:
-        accession === "P00918"
-          ? "Carbonic anhydrase 2"
-          : `Protein ${accession}`,
-      organism: "Homo sapiens",
-      taxid: 9606,
-      sequence:
-        "MSHHWGYGKHNGPEHWHKDFPIAKGERQSPVDIDTHTAKYDPSLKPLSVSYDQATSLRILNNGHAFNVEFDDSQDKAVLKGGPLDGTYRLIQFHFHWGSLDGQGSEHTVDKKKYAAELHLVHWNTKYGDFGKAVQQPDGLAVLGIFLKVGSAKPGLQKVVLDVLDKIKTKGKSADFTNFDPRGLLPESLDYWTYPGSLTTPPLLECVTWIVLKEPISVSSEQVLKFRKLNFNGEGEPEELMVDNWRPAQPLKNRQIKASFK",
-      url: `https://www.uniprot.org/uniprotkb/${accession}/entry`,
-      license: "CC BY 4.0",
-    };
+  atlas(query:string,similar=false):AtlasRecord {
+    const q=query.trim();
+    if(!["P00918",String(recorded.atlas.metadata?.protein_hash),String(recorded.atlas.metadata?.sequence),"carbonic anhydrase"].some(value=>value.toLowerCase()===q.toLowerCase()))throw new Error("Demo includes the saved P00918 Atlas reference. Enter P00918; use an invitation for other live queries.");
+    if(similar)throw new Error("The saved P00918 case has no recorded similarity hits. Turn off similarity to inspect its metadata and SAE features.");
+    return JSON.parse(JSON.stringify(recorded.atlas));
+  },
+  sequenceTool(tool:string,sequence:string,args:Record<string,number>={}):{prepared_sequence?:{start:number;end:number;sequence:string};structure?:ProteinStructure} {
+    const protein=cleanSequence(sequence).body;
+    if(tool==='inspect_structure') {
+      if(protein!==WT)throw new Error("The saved WT structure matches only the 544-residue example. Load the example to inspect it; no new folding occurs in Demo.");
+      return {structure:recorded.structure};
+    }
+    if(tool==='prepare_mature_protein') {
+      const {start,end}=args;
+      if(!Number.isInteger(start)||!Number.isInteger(end)||start<1||end<start||end>protein.length)throw new Error("Provide a valid inclusive 1-based interval.");
+      return {prepared_sequence:{start,end,sequence:protein.slice(start-1,end)}};
+    }
+    throw new Error("New structure inference requires an invited live workspace.");
+  },
+  inputFile(filename:string,content:string,type?:string|null):ClassifyResult {
+    let text=content;
+    if(/\.json$/i.test(filename)) {
+      const parsed=JSON.parse(content);const records=Array.isArray(parsed)?parsed:parsed.records??parsed.bioartifact?.records??[parsed];
+      if(records.length!==1)throw new Error("Import one sequence at a time in Demo.");
+      text=records[0].sequence??records[0].mutant_sequence;
+      if(typeof text!=='string')throw new Error("JSON must contain a sequence or mutant_sequence.");
+    }else if(/\.csv$/i.test(filename)) {
+      const lines=content.trim().split(/\r?\n/);const headers=lines[0].replace(/^\uFEFF/,'').split(',');const index=headers.findIndex(x=>['sequence','mutant_sequence'].includes(x.replace(/"/g,'')));
+      if(index<0||lines.length!==2)throw new Error("Import a CSV containing exactly one sequence or mutant_sequence row.");
+      text=lines[1].split(',')[index].replace(/^"|"$/g,'');
+    }else if(!/\.(fasta|fa|faa|fna|ffn|frn|txt|seq)$/i.test(filename))throw new Error("Demo imports FASTA, sequence text, single-record CSV and JSON. Other formats require live mode.");
+    if((text.match(/^>/gm)||[]).length>1)throw new Error("Import one FASTA sequence at a time in Demo.");
+    return demo.classify(text,type||'protein');
+  },
+  exportArtifact(artifact:BioArtifact,format:string):{content:string;warnings:string[]} {
+    if(format==='json')return {content:JSON.stringify(artifact,null,2),warnings:[]};
+    if(format==='fasta')return {content:artifact.records.map(r=>`>${r.id} ${r.name}\n${r.sequence}\n`).join(''),warnings:[]};
+    if(format==='csv')return {content:'id,name,type,sequence\n'+artifact.records.map(r=>[r.id,r.name,r.type,r.sequence].map(v=>'"'+v.replace(/"/g,'""')+'"').join(',')).join('\n'),warnings:[]};
+    throw new Error("Choose FASTA, CSV or JSON for local Demo export.");
   },
 
   tools(): ToolInfo[] {
@@ -1159,9 +1214,9 @@ export const demo = {
         },
       },
       llm: {
-        base_url: "https://generativelanguage.googleapis.com/v1beta",
-        parameter_model: "gemini-2.5-flash",
-        analysis_model: "gemini-2.5-pro",
+        base_url: "https://api.minimax.cn/v1",
+        parameter_model: "MiniMax-M2.5",
+        analysis_model: "MiniMax-M2.5",
       },
       runtime: {
         gpu_id: 0,
@@ -1259,7 +1314,7 @@ export const demo = {
     const needsPrepared = capabilities.some((cap) =>
       ["activity_prediction", "ph_prediction", "stability_prediction"].includes(
         cap,
-      ),
+      )
     );
     if (needsPrepared)
       steps.push({
@@ -1308,7 +1363,7 @@ export const demo = {
       ],
       ["b_subtilis", "Bacillus subtilis", "枯草芽孢杆菌", "1423"],
     ];
-    return list.map(([key, scientific_name, display_name_zh, taxid]) => ({
+    return list.filter(([key])=>Boolean(CODON_MAPS[key])).map(([key, scientific_name, display_name_zh, taxid]) => ({
       key,
       scientific_name,
       display_name_zh,

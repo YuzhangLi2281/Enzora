@@ -136,8 +136,8 @@ export function Header() {
               <button aria-pressed={demo} onClick={() => setDemo(!demo)}>
                 {demo
                   ? zh
-                    ? "切换真实模式"
-                    : "Use live mode"
+                    ? "邀请码登录真实工作区"
+                    : "Live workspace · invitation"
                   : zh
                     ? "进入演示"
                     : "Use demo mode"}
@@ -187,9 +187,9 @@ export function Header() {
             className={`ghost small demo-toggle ${demo ? "mode-active" : ""}`}
             aria-pressed={demo}
             onClick={() => setDemo(!demo)}
-            title={zh ? "切换演示模式" : "Toggle demo mode"}
+            title={demo ? (zh ? "输入邀请码，连接真实工作区" : "Enter an invitation code for the live workspace") : (zh ? "返回公开演示" : "Return to public demo")}
           >
-            Demo
+            {demo ? (zh ? "邀请码登录" : "Live · invitation") : "Demo"}
           </button>
           <button
             className="ghost small"
@@ -246,7 +246,7 @@ export function Header() {
                   <strong>Enzora <span aria-hidden="true">↗</span></strong>
                   <span>{zh ? "酶设计工作流与 Agent" : "Enzyme-design workflow and Agent"}</span>
                 </a>
-                <a role="menuitem" tabIndex={-1} href="https://github.com/YuzhangLi2281/Phenom.git" target="_blank" rel="noopener noreferrer" onClick={() => setSourcesOpen(false)}>
+                <a role="menuitem" tabIndex={-1} href="https://github.com/YuzhangLi2281/Phenom" target="_blank" rel="noopener noreferrer" onClick={() => setSourcesOpen(false)}>
                   <strong>Phenom <span aria-hidden="true">↗</span></strong>
                   <span>{zh ? "酶活性预测模型" : "Enzyme-activity prediction model"}</span>
                 </a>

@@ -17,7 +17,7 @@ Enzora connects a three-model mutation library to multi-objective screening and 
 
 Desktop wheel gestures move between three full-screen stages with eased acceleration and deceleration. Scrolling and stage navigation change the view. **Start Screening** starts prediction after library construction; **Select Top-K & generate report** starts final selection and reporting after scoring. These actions are explicit computational boundaries.
 
-The live workspace requires a workspace access code. Demo mode runs in the browser with labelled simulated results.
+The public landing page opens a repeatable Demo of the recorded 1,000-candidate case. Its original predictions, UMAP and supplied WT structure are bundled as read-only data; replaying them does not run GPU models. Region extraction, translation and synonymous CDS design run locally. Demo Assistant uses real MiniMax conversation through a bounded, read-only public endpoint with no model-job tools. An invitation code unlocks the live workspace. Custom-input simulation is labelled separately.
 
 ## Enzora Assistant and tools
 
@@ -94,7 +94,7 @@ In a second terminal:
 VITE_PROXY_TARGET=http://127.0.0.1:8000 npm --prefix src/Enzora_Software_Webs/web run dev
 ```
 
-Open the address printed by Vite. Add `?demo=1#/workbench` for the offline demonstration. For a static deployment, set the public API URL in `web/public/config.js` before building:
+Open the address printed by Vite. Demo is the default entry; `?demo=1#/workbench` selects it explicitly. The scientific replay works locally; Assistant conversation requires the configured API. For a static deployment, set the public API URL in `web/public/config.js` before building:
 
 ```bash
 npm --prefix src/Enzora_Software_Webs/web test
@@ -149,8 +149,8 @@ Enzora combines the following projects. Their source, weights and licences remai
 - [EnzGFM](https://github.com/DeepBxM/EnzGFM): enzyme-domain protein modelling.
 - [PHENOM](https://github.com/YuzhangLi2281/Phenom): enzyme–substrate kinetic prediction with Gaussian uncertainty heads.
 - [PSICHIC](https://github.com/huankoh/PSICHIC): hierarchical protein–ligand interaction modelling; upstream code uses Apache-2.0.
-- [EpHod](https://github.com/beckham-lab/EpHod): optimum-pH prediction.
-- [UniStab](https://github.com/xlab-BioAI/UniStab): protein stability prediction.
+- **EpHod:** Gado, J. E., Knotts, M., Shaw, A. Y., et al. *Machine learning prediction of enzyme optimum pH.* Nature Machine Intelligence (2025). [Paper](https://doi.org/10.1038/s42256-025-01026-6) · [Code](https://github.com/beckham-lab/EpHod).
+- **UniStab:** Tan, H., Lin, S. and Xiong, Y. *A unified predictor of protein stability changes across all mutation types via implicit structure learning.* Chemical Science (2026). [Paper](https://doi.org/10.1039/D6SC02103D) · [Code](https://github.com/xlab-BioAI/UniStab).
 - [MolT5](https://github.com/blender-nlp/MolT5): molecular language representations.
 - [MiniMax](https://platform.minimax.io/docs/api-reference/text-openai-api): language-model API and native function calls.
 - [ESM Atlas](https://www.biohub.ai/esm/protein/atlas/api-docs/): protein records, structures and SAE feature search.

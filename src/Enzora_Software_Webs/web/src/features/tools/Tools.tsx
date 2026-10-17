@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
+import { DEMO_ENZYME_SEQUENCE } from '../../shared/demo/backend';
 import { api, isDemo } from '../../shared/api/client';
 import { useApp } from '../../app/store';
 import { ChatPanel } from '../experiment/ChatPanel';
@@ -16,13 +17,13 @@ export function Tools() {
   const catalog=useQuery({queryKey:['tools'],queryFn:()=>api.tools()});
   const hosts=useQuery({queryKey:['hosts'],queryFn:()=>api.hosts()});
   const runs=useQuery({queryKey:['runs'],queryFn:()=>api.listRuns()});
-  const [sequence,setSequence]=useState(runRequest?.sequence??'');
+  const [sequence,setSequence]=useState(runRequest?.sequence??(isDemo()?DEMO_ENZYME_SEQUENCE:''));
   const [type,setType]=useState<'protein'|'dna'|'rna'>('protein');
   const [operation,setOperation]=useState('atlas');
-  const [atlasQuery,setAtlasQuery]=useState('');
+  const [atlasQuery,setAtlasQuery]=useState(isDemo()?'P00918':'');
   const [similar,setSimilar]=useState(false);
   const [host,setHost]=useState('b_subtilis');
-  const [start,setStart]=useState(1),[end,setEnd]=useState(runRequest?.sequence.length??1);
+  const [start,setStart]=useState(1),[end,setEnd]=useState(runRequest?.sequence.length??(isDemo()?544:1));
   const [job,setJob]=useState('');
   const [query,setQuery]=useState('');
   const [lookup,setLookup]=useState<Awaited<ReturnType<typeof api.lookup>>['candidates']>([]);
@@ -74,7 +75,7 @@ export function Tools() {
   return <>
     <main id="main-content" className="page-shell tools-workspace">
       <header className="tools-heading"><div><h1>Models & Tools</h1><p>{zh?'导入序列，调用工具，检查并导出结果。':'Import a sequence, run a tool, inspect and export its result.'}</p></div><Link to="/workbench">{zh?'打开酶设计工作区':'Open enzyme workspace'} ↗</Link></header>
-      {isDemo()&&<p className="tools-notice">{zh?'演示模式使用模拟翻译与密码子结果。结构与区段工具需要真实后端。':'Demo translation and codon outputs are simulated. Structure and region tools require live mode.'}</p>}
+      {isDemo()&&<p className="tools-notice">{zh?'示例结构与 Atlas 信息可重复查看；区段提取、翻译与同义密码子设计在本地执行，不运行新预测。':'Repeat the saved WT structure and P00918 Atlas case. Region extraction, translation and synonymous coding design run locally; no new predictions.'}</p>}
       <div className="tools-operation-grid">
         <section className="tools-input" aria-labelledby="tools-sequence">
           <h2 id="tools-sequence">{zh?'序列输入':'Sequence input'}</h2>

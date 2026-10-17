@@ -44,6 +44,7 @@ function harness({ saved = new Map(), query = "?demo=1", fetchImpl } = {}) {
     clearTimeout: () => {},
   });
   function load(file) {
+    if(file.endsWith(".json"))return {default:JSON.parse(fs.readFileSync(path.resolve(root,file),"utf8"))};
     const filename = path.resolve(
       root,
       file.endsWith(".ts") ? file : `${file}.ts`,
@@ -424,10 +425,7 @@ test("manual demo phases wait for explicit Next; 1000 unique sequences and local
     { ph: 1, activity: 0.2, stability: 1 },
   );
   assert.ok(Math.abs(balanced.effective_weights.activity - 1 / 6) < 1e-12);
-  assert.match(
-    (await api.chat("explain", job_id, null)).message,
-    /no MiniMax request/,
-  );
+  await assert.rejects(api.chat("explain", job_id, null), /Cannot reach/);
   await api.advanceRun(job_id, 3);
   h.finish();
   assert.equal((await api.getRun(job_id)).status, "success");
@@ -464,10 +462,7 @@ test("copilot is available before a run and keeps returned codon artifacts", asy
   assert.equal(sent.body.job_id, null);
   assert.equal(response.codon_rows[0].optimized_cds_with_stop, "GCGTAA");
   const local = harness().load("shared/api/client");
-  assert.match(
-    (await local.api.chat("Explain", null, null)).message,
-    /no MiniMax request/,
-  );
+  await assert.rejects(local.api.chat("Explain", null, null), /Cannot reach/);
 });
 test("demo host export rejects unknown residues and supports Bacillus explicitly", async () => {
   const { api } = harness().load("shared/api/client");
@@ -594,4 +589,63 @@ test("candidate evidence changes with uncertainty and reconstructs the frozen sc
   assert.throws(()=>candidateScoreEvidence({...candidate,ph_uncertainty:null},selection));
   assert.throws(()=>candidateScoreEvidence({...candidate,activity_log10:null},selection));
   assert.throws(()=>candidateScoreEvidence({...candidate,stability_uncertainty:-1},selection));
+});
+
+test('public entry defaults to Demo even when an old visitor saved live mode without an invitation', () => {
+  const h=harness({query:'',saved:new Map([['fea_demo','0']])});
+  assert.equal(h.load('shared/api/client').isDemo(),true);
+  assert.equal(harness({query:'?demo=0'}).load('shared/api/client').isDemo(),false);
+});
+
+test('permanent real-case Demo is restored independently of browser cache', () => {
+  const {demo,DEMO_CASE_ID}=harness().load('shared/demo/backend');
+  const baseline=demo.getRun(DEMO_CASE_ID);
+  assert.equal(baseline.status,'success');
+  const rows=demo.getCandidates(DEMO_CASE_ID,{page_size:1000}).rows;
+  assert.equal(rows.length,1000);assert.equal(new Set(rows.map(r=>r.mutant_sequence)).size,1000);
+  assert.equal(baseline.result.selected[0].mutation,'V368R');
+  const umap=JSON.parse(demo.readArtifact(DEMO_CASE_ID,'umap.json'));
+  assert.equal(umap.method,'UMAP');assert.equal(umap.points.length,1000);
+  assert.equal(harness().load('shared/demo/backend').demo.getRun(DEMO_CASE_ID).result.selected[0].mutation,'V368R');
+});
+
+test('saved-case Build, Screening and Top-K can be repeated without corrupting the permanent case', async () => {
+  const h=harness();const {demo,DEMO_CASE_ID}=h.load('shared/demo/backend');
+  const original=JSON.stringify(demo.getCandidates(DEMO_CASE_ID,{page_size:1000}).rows);
+  const request=JSON.parse(demo.readArtifact(DEMO_CASE_ID,'00_resolved_request.json'));
+  request.runtime.phase_control=true;
+  for(let pass=0;pass<3;pass++){
+    const {job_id}=await demo.submitRun(request);h.finish();
+    assert.equal(demo.getRun(job_id).progress.next_phase,2);
+    demo.balanceRun(job_id,request.selection.weights,request.selection.confidence);
+    demo.advanceRun(job_id,2);h.finish();assert.equal(demo.getRun(job_id).progress.next_phase,3);
+    demo.advanceRun(job_id,3);h.finish();assert.equal(demo.getRun(job_id).status,'success');
+    assert.equal(demo.getRun(job_id).result.selected[0].mutation,'V368R');
+    assert.equal(JSON.parse(demo.readArtifact(job_id,'umap.json')).points.length,1000);
+    assert.match(demo.readArtifact(job_id,'llm_balance_decisions.jsonl'),/reason/);
+  }
+  for(const phase of [2,3,2,3]){const replay=demo.replayRun(DEMO_CASE_ID,phase,request.selection);h.finish();assert.equal(demo.getRun(replay.job_id).progress.status,phase===2?'awaiting_next':'success');}
+  assert.equal(JSON.stringify(demo.getCandidates(DEMO_CASE_ID,{page_size:1000}).rows),original);
+});
+
+test('Demo local tools and file roundtrip remain repeatable, and cannot fold arbitrary proteins', () => {
+  const {demo,DEMO_ENZYME_SEQUENCE:wt}=harness().load('shared/demo/backend');
+  for(let i=0;i<3;i++){
+    assert.equal(demo.sequenceTool('inspect_structure',wt).structure.points.length,544);
+    assert.equal(demo.sequenceTool('prepare_mature_protein',wt,{start:65,end:544}).prepared_sequence.sequence,wt.slice(64));
+    assert.equal(demo.atlas('P00918').metadata.protein_name,'Carbonic anhydrase 2');
+    const cds=demo.codonOptimize(wt,['e_coli']).results[0].optimized_cds_with_stop;
+    assert.equal(demo.translate(cds,'dna').protein_sequence,wt);
+    const imported=demo.inputFile('selected.fasta','>WT\n'+wt,'protein');
+    assert.equal(JSON.parse(demo.exportArtifact(imported.bioartifact,'json').content).records[0].sequence,wt);
+  }
+  assert.throws(()=>demo.sequenceTool('predict_structure',wt),/invited/);
+  assert.throws(()=>demo.sequenceTool('inspect_structure','AAAA'),/only/);
+});
+
+test('Demo Assistant calls only the public read-only endpoint and forwards bounded conversation', async () => {
+  const calls=[];const h=harness({fetchImpl:async(url,init)=>{calls.push({url,body:JSON.parse(init.body)});return new Response(JSON.stringify({message:'Saved case explanation',source:'minimax',mode:'read_only_saved_case'}),{status:200});}});
+  const answer=await h.load('shared/api/client').api.chat('Why V368R?',null,null,undefined,undefined,[{role:'user',text:'Explain the saved case'}]);
+  assert.equal(answer.message,'Saved case explanation');assert.equal(calls.length,1);assert.equal(calls[0].url,'/api/demo/chat');
+  assert.equal(calls[0].body.history.length,1);assert.equal(calls[0].body.job_id,undefined);
 });

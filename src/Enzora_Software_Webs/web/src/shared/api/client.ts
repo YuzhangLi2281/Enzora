@@ -2,7 +2,8 @@
  *  - Dev: Vite proxies /api to VITE_PROXY_TARGET (GPU server).
  *  - Prod: VITE_API_BASE_URL, or same-origin when served by the backend.
  *  - Demo mode (VITE_DEMO=1, URL ?demo=1, or header toggle) routes every call
- *    to simulated data so the whole UI works without a backend.
+ *    to saved-case replay or local simulation. Demo Assistant alone uses a
+ *    constrained public MiniMax endpoint with no model-execution tools.
  *  All third-party network access happens on the backend; this client only
  *  ever talks to the agent's own API. */
 
@@ -37,7 +38,7 @@ export const API_BASE = normalizeApiBase(
 const demoMode = (() => {
   let saved: string | null = null;
   try {
-    saved = localStorage.getItem("fea_demo");
+    saved = accessToken() ? localStorage.getItem("fea_demo") : null;
     const override = new URLSearchParams(window.location.search).get("demo");
     if (override === "0" || override === "1")
       localStorage.setItem("fea_demo", override);
@@ -47,8 +48,7 @@ const demoMode = (() => {
   return resolveDemoMode(
     window.location.search,
     saved,
-    window.__ENZYME_CONFIG__?.demo === true ||
-      import.meta.env.VITE_DEMO === "1",
+    true,
   );
 })();
 export const isDemo = (): boolean => demoMode;
@@ -62,6 +62,9 @@ export function setDemo(on: boolean): void {
   const url = new URL(window.location.href);
   url.searchParams.set("demo", on ? "1" : "0");
   url.searchParams.delete("job");
+  const [route,hashQuery] = url.hash.split("?");
+  const params=new URLSearchParams(hashQuery);params.delete("job");
+  url.hash=route+(params.size?"?"+params.toString():"");
   window.location.assign(url.toString());
 }
 
@@ -159,12 +162,11 @@ export const api = {
       confidence: { ph: number; activity: number; stability: number };
     };
   }> {
-    if (isDemo())
-      return Promise.resolve({
-        message: /[\u3400-\u9fff]/.test(message)
-          ? "这是本地演示回复，没有调用 MiniMax。你可以设置突变数量与阶数、体验三评分器配平，再通过 Select Top-K 查看候选和宿主密码子导出。连接真实后端后，助手才会根据自然语言调用相应工具。"
-          : "Demo assistant: no MiniMax request was made. Adjust preferences and confidence in the control panel, apply the balance, then select Top-K to generate the final report.",
-      });
+    if(isDemo()) {
+      onProgress?.({phase:'planning'});
+      const value=await post<{message:string}>('/demo/chat',{message,history:history??[]});
+      return value;
+    }
     const response=await responseFor('/chat/stream',{method:'POST',body:JSON.stringify({message,job_id:jobId,session_id:sessionId,...(proteinSequence?{protein_sequence:proteinSequence}:{}),...(history?{history}:{})})});
     if(!response.body)throw new ApiError(502,'Assistant returned an empty stream.');
     const reader=response.body.getReader(),decoder=new TextDecoder();
@@ -190,12 +192,16 @@ export const api = {
 
   },
   atlas(query:string,similar=false):Promise<AtlasRecord>{
-    if(isDemo())return Promise.reject(new ApiError(400,'Use live mode to query ESM Atlas.'));
+    if(isDemo())return Promise.resolve(demo.atlas(query,similar));
     return post('/tools/atlas',{query,similar});
   },
   sequenceTool(tool:string,sequence:string,args:Record<string,number>={}):Promise<{prepared_sequence?:{start:number;end:number;sequence:string};structure?:ProteinStructure}> {
-    if(isDemo())return Promise.reject(new ApiError(400,'Use live mode to run scientific tools.'));
+    if(isDemo())return Promise.resolve(demo.sequenceTool(tool,sequence,args));
     return post('/tools/sequence',{tool,sequence,arguments:args});
+  },
+  replayDemo(jobId:string,phase:number,selection:RunRequest['selection']):Promise<{job_id:string}> {
+    if(!isDemo())return Promise.reject(new ApiError(400,'Replay is available only in Demo.'));
+    return Promise.resolve(demo.replayRun(jobId,phase,selection));
   },
   advanceRun(jobId: string, phase: number): Promise<unknown> {
     if (isDemo()) return Promise.resolve(demo.advanceRun(jobId, phase));
@@ -385,13 +391,7 @@ export const api = {
     sessionId: string | null,
     typeOverride?: string | null,
   ): Promise<ClassifyResult> {
-    if (isDemo())
-      return Promise.reject(
-        new ApiError(
-          400,
-          "File import requires a live backend. Turn off demo mode.",
-        ),
-      );
+    if (isDemo())return Promise.resolve(demo.inputFile(filename,content,typeOverride));
     return post("/input/file", {
       filename,
       content,
@@ -400,6 +400,7 @@ export const api = {
     });
   },
   exportArtifact(bioartifact: NonNullable<ClassifyResult['bioartifact']>, format: string): Promise<{ content: string; warnings: string[] }> {
+    if(isDemo())return Promise.resolve(demo.exportArtifact(bioartifact,format));
     return post('/input/export', { bioartifact, format });
   },
   translate(

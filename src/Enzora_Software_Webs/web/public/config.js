@@ -4,5 +4,5 @@
 // Public values only: never put API keys or other secrets here.
 window.__ENZYME_CONFIG__ = {
   apiBaseUrl: '',
-  demo: false,
+  demo: true,
 };

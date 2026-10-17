@@ -264,14 +264,14 @@ export function ChatPanel({
                 : "Working"
               : isDemo()
                 ? zh
-                  ? "演示助手"
-                  : "Demo assistant"
+                  ? "案例问答 · 只读"
+                  : "Case Q&A · read-only"
                 : zh
                   ? "设计与你协作"
                   : "Your design companion"}
           </span>
         </div>
-        <span className="copilot-mode">{isDemo() ? "Demo" : "MiniMax"}</span>
+        <span className="copilot-mode">{isDemo() ? "MiniMax · Demo" : "MiniMax"}</span>
         <button
           ref={toggle}
           className="copilot-toggle"
@@ -459,8 +459,8 @@ export function ChatPanel({
               <span>
                 {isDemo()
                   ? zh
-                    ? "模拟回复 · 未调用 MiniMax"
-                    : "Simulated replies · No MiniMax calls"
+                    ? "真实 MiniMax · 只读案例，不运行模型"
+                    : "Live MiniMax · read-only case, no model runs"
                   : zh
                     ? "Enter 发送 · Shift+Enter 换行"
                     : "Enter to send · Shift+Enter for a new line"}

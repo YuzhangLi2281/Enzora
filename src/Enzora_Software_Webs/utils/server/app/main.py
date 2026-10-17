@@ -29,6 +29,11 @@ async def require_access_code(request: Request, call_next):
     expected = os.environ.get("ENZORA_ACCESS_TOKEN", "")
     if request.url.path == "/api/auth/status":
         return JSONResponse({"required": bool(expected)})
+    if request.method == "POST" and request.url.path == "/api/demo/chat":
+        # This public route has no tool executor or model-job access.
+        if int(request.headers.get("content-length", "0")) > 24000:
+            return JSONResponse({"detail":"Demo message is too large"}, status_code=413)
+        return await call_next(request)
     if expected and request.method != "OPTIONS" and request.url.path.startswith("/api/"):
         supplied = request.headers.get("Authorization", "")
         if not hmac.compare_digest(supplied.encode(), ("Bearer " + expected).encode()):

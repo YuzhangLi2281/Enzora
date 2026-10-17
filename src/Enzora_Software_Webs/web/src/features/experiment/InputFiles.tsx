@@ -51,12 +51,12 @@ export function InputFiles({ lang, sessionId, typeOverride, disabled, onResults,
   };
   return <div className="input-files">
     <input ref={picker} type="file" multiple accept={INPUT_FILE_ACCEPT} style={{ display: 'none' }} onChange={(e) => void read(e.target.files)} />
-    <button type="button" className="ghost small" disabled={disabled || busy || isDemo()} onClick={() => picker.current?.click()}>{busy ? (lang === 'zh' ? '正在读取文件…' : 'Reading files…') : (lang === 'zh' ? '＋ 导入文件' : '＋ Import files')}</button>
+    <button type="button" className="ghost small" disabled={disabled || busy} onClick={() => picker.current?.click()}>{busy ? (lang === 'zh' ? '正在读取文件…' : 'Reading files…') : (lang === 'zh' ? '＋ 导入文件' : '＋ Import files')}</button>
     <span className="small dim" style={{ marginLeft: 8 }}>{lang === 'zh' ? 'FASTA · CSV · JSON · GenBank · SBOL · PDB/mmCIF · FASTQ' : 'FASTA · CSV · JSON · GenBank · SBOL · PDB/mmCIF · FASTQ'}</span>
     {artifact && <div style={{ marginTop: 10, display: 'flex', gap: 8, alignItems: 'center' }}>
       <label className="small">{lang === 'zh' ? '导出已导入记录' : 'Export imported records'}
         <select value={format} onChange={e => setFormat(e.target.value)} disabled={busy} style={{ marginLeft: 8 }}>
-          {['json', 'csv', 'fasta', 'genbank', 'sbol'].map(f => <option key={f} value={f}>{f.toUpperCase()}</option>)}
+          {(isDemo()?['json','csv','fasta']:['json', 'csv', 'fasta', 'genbank', 'sbol']).map(f => <option key={f} value={f}>{f.toUpperCase()}</option>)}
         </select>
       </label>
       <button type="button" className="ghost small" disabled={busy} onClick={() => void exportFile()}>{lang === 'zh' ? '导出' : 'Export'}</button>

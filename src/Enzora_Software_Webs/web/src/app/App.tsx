@@ -25,8 +25,8 @@ export default function App() {
     fetch(`${API_BASE}/auth/status`, { signal: controller.signal }).then(async (response) => {
       if (!response.ok) throw new Error('Connection failed');
       const status = await response.json();
-      if (status.required && accessToken()) await login(accessToken());
-      if (active) setAuth(status.required && !accessToken() ? 'required' : 'ready');
+      if (accessToken()) await login(accessToken());
+      if (active) setAuth(!accessToken() ? 'required' : 'ready');
     }).catch(() => { if (active) setAuth(accessToken() ? 'required' : 'offline'); }).finally(() => window.clearTimeout(timer));
     return () => { active = false; controller.abort(); window.clearTimeout(timer); };
   }, []);
