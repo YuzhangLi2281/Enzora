@@ -4477,7 +4477,7 @@ body,
 :root[data-theme="deep-space"] .enzora-teams-page :is(.teams-note,.teams-project,.teams-resource-list p) { color:#b7cada; }
 :root[data-theme="deep-space"] .enzora-teams-page .teams-pending { background:#ffffff07 !important; }
 :root[data-theme="macaron"] .process-scroll > .process-canvas { background:linear-gradient(180deg,#fdfefe 0%,#f7fbff 11%,#edf5ff 38%,#edf0fb 65%,#eee8f6 100%); }
-.process-canvas > .process-section > .stage-decoration { position:absolute; width:78%; height:88%; object-fit:contain; pointer-events:none; user-select:none; z-index:-1; opacity:.075; mask-image:radial-gradient(ellipse,#000 24%,transparent 74%); animation:stage-molecule-float 18s ease-in-out infinite alternate,stage-molecule-breathe 7s ease-in-out infinite alternate,stage-molecule-sway 13s ease-in-out infinite alternate; animation-delay:-9s,-3s,-6s; will-change:transform,translate,opacity; transform-origin:50% 50%; backface-visibility:hidden; }
+.process-canvas > .process-section > .stage-decoration { position:absolute; width:78%; height:88%; object-fit:contain; pointer-events:none; user-select:none; z-index:-1; opacity:.075; mask-image:radial-gradient(ellipse,#000 24%,transparent 74%); animation:stage-molecule-float 23s ease-in-out infinite,stage-molecule-breathe 8s ease-in-out infinite alternate,stage-molecule-sway 17s ease-in-out infinite alternate; animation-delay:-9s,-3s,-6s; will-change:transform,translate,opacity; transform-origin:50% 50%; backface-visibility:hidden; }
 .process-canvas > .process-section > .stage-decoration-library { --stage-angle:-12deg; top:4%; right:-7%; opacity:.105; }
 .process-canvas > .process-section > .stage-decoration-screening { --stage-angle:15deg; top:9%; right:18%; width:85%; }
 .process-canvas > .process-section > .stage-decoration-output { --stage-angle:-22deg; top:6%; right:-6%; width:92%; opacity:.065; }
@@ -4715,18 +4715,20 @@ body,
 .atlas-color-key {left:0;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:10px;align-items:center;width:100px;font-size:15px;line-height:1.35;text-align:center;color:var(--text);z-index:3;}
 .atlas-color-key i {width:20px;height:188px;border-radius:var(--radius-ui);background:linear-gradient(to top,#8cbfc2 0%,#b49ac8 50%,#e8b8d2 100%);border:1px solid #7b98b43d;}
 .atlas-color-key small {font-size:10px;max-width:95px;color:var(--text-dim);}
-/* Buoyant motion: fixed orientation, a slow vertical drift and a separate
-   opacity breath. No animated filter or angular sweep that re-rasterizes art. */
+/* Independent orbital drift, lateral current and opacity breathing create
+   a continuous buoyant motion without shaking or animated raster filters. */
 @keyframes stage-molecule-float {
- from {transform:translate3d(0,14px,0) rotate(var(--stage-angle,0deg)) scale(.99);}
- to {transform:translate3d(0,-16px,0) rotate(var(--stage-angle,0deg)) scale(1.02);}
+ 0%,100% {transform:translate3d(0,18px,0) rotate(calc(var(--stage-angle,0deg) - .8deg)) scale(1);}
+ 23% {transform:translate3d(22px,-6px,0) rotate(calc(var(--stage-angle,0deg) + .7deg)) scale(1.025);}
+ 48% {transform:translate3d(-4px,-26px,0) rotate(calc(var(--stage-angle,0deg) + 1.2deg)) scale(1.015);}
+ 74% {transform:translate3d(-25px,2px,0) rotate(calc(var(--stage-angle,0deg) - .4deg)) scale(.995);}
 }
 @keyframes stage-molecule-breathe {
  from {opacity:calc(var(--stage-opacity,.14)*.55);}
  to {opacity:var(--stage-opacity,.14);}
 }
-.process-canvas > .process-section > .stage-decoration-screening {animation-duration:16s,8.5s,15s;animation-delay:-7s,-4s,-11s;}
-.process-canvas > .process-section > .stage-decoration-output {animation-duration:20s,9s,17s;animation-delay:-5s,-2s,-8s;}
+.process-canvas > .process-section > .stage-decoration-screening {animation-duration:27s,9s,19s;animation-delay:-13s,-4s,-11s;}
+.process-canvas > .process-section > .stage-decoration-output {animation-duration:25s,10s,21s;animation-delay:-5s,-2s,-8s;}
 
 @media(max-width:700px){.app-header .nav-link{font-size:14px;}.atlas-color-key{left:3px;width:66px;font-size:12px;}.atlas-color-key i{height:120px;width:16px;}.atlas-color-key small{font-size:9px;}.section-heading .library-stage-title{margin-top:18px;}}
 
@@ -4754,4 +4756,4 @@ body,
  .atlas-color-key i {width:22px;height:128px;}
 }
 
-@keyframes stage-molecule-sway {from {translate:-12px 0;}to {translate:12px 0;}}
+@keyframes stage-molecule-sway {from {translate:-22px 8px;}to {translate:22px -8px;}}
