@@ -271,7 +271,7 @@ export function ChatPanel({
                   : "Your design companion"}
           </span>
         </div>
-        <span className="copilot-mode">{isDemo() ? "MiniMax · Demo" : "MiniMax"}</span>
+        <span className="copilot-mode">MiniMax</span>
         <button
           ref={toggle}
           className="copilot-toggle"
